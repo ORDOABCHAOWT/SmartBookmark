@@ -20,6 +20,8 @@
   ·
   <a href="#快速开始">快速开始</a>
   ·
+  <a href="PROJECT_OVERVIEW.md">项目说明</a>
+  ·
   <a href="#开发计划">开发计划</a>
   ·
   <a href="#常见问题">常见问题</a>
@@ -33,12 +35,15 @@
 
 Smart Bookmark 是一款基于 AI 的智能书签管理 Chrome/Edge 扩展。收藏时**自动生成标签**，搜索时**理解自然语言**，支持 WebDAV 同步、自定义筛选、批量操作等。插件免费，配置 API Key 或使用 Ollama 本地模型即可使用。
 
+如果你想快速了解项目目标、模块分工和整体结构，可以查看 [项目说明文档](PROJECT_OVERVIEW.md)。
+
 ---
 
 ## 功能特性
 
 - **🤖 AI 自动生成标签**：收藏网页时，智能生成相关标签，无需手动归类，彻底告别繁琐的文件夹！
 - **🔍 语义化搜索**：记不住关键词也不用担心，用自然语言描述内容即可快速找到目标书签。
+- **🗂️ AI 一键归类**：可批量读取已有书签并自动生成标签，帮助你快速完成整理。
 - **📋 自定义筛选规则**：支持按标题、标签、网址等筛选规则，轻松实现书签自动归类，管理更加高效。
 - **☁️ WebDAV 同步**：支持 WebDAV 同步，轻松实现多设备同步。
 - **✅ 批量操作**：支持批量选择和删除书签，管理更加便捷。
@@ -216,7 +221,7 @@ Smart Bookmark 是一款基于 AI 的智能书签管理 Chrome/Edge 扩展。收
 
 1. 克隆项目：
    ```bash
-   git clone https://github.com/howoii/SmartBookmark.git
+   git clone https://github.com/ORDOABCHAOWT/SmartBookmark.git
    cd SmartBookmark
    ```
 
@@ -231,7 +236,7 @@ Smart Bookmark 是一款基于 AI 的智能书签管理 Chrome/Edge 扩展。收
 
 欢迎贡献代码、报告问题或提出建议！
 
-- **报告 Bug**：请使用 [Issues](https://github.com/howoii/SmartBookmark/issues) 提交
+- **报告 Bug**：请使用 [Issues](https://github.com/ORDOABCHAOWT/SmartBookmark/issues) 提交
 - **功能建议**：欢迎在 Issues 中讨论
 - **提交代码**：Fork 本仓库后提交 Pull Request
 

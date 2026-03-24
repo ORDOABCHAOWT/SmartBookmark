@@ -18,6 +18,8 @@
   ·
   <a href="#quick-start">Quick Start</a>
   ·
+  <a href="PROJECT_OVERVIEW.md">Project Notes</a>
+  ·
   <a href="#roadmap">Roadmap</a>
   ·
   <a href="#faq">FAQ</a>
@@ -31,12 +33,15 @@
 
 Smart Bookmark is an AI-powered bookmark manager extension for Chrome and Edge. It **auto-generates tags** when you save pages, **understands natural language** when you search, and supports WebDAV sync, custom filters, and batch operations. The extension is free—just configure your API Key or use Ollama for local models.
 
+For a quick technical overview of the project structure and modules, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
+
 ---
 
 ## Features
 
 - **🤖 AI Auto Tags**: Save a page and get relevant tags automatically. No more manual tagging or folder organization.
 - **🔍 Semantic Search**: Use natural language to find bookmarks—describe what you remember instead of exact keywords.
+- **🗂️ AI Batch Categorization**: Process existing bookmarks in bulk and generate tags automatically for faster organization.
 - **📋 Custom Filters**: Filter by title, tags, URL, and more. Auto-categorize bookmarks with rules.
 - **☁️ WebDAV Sync**: Sync your bookmarks across devices via WebDAV.
 - **✅ Batch Operations**: Select and delete multiple bookmarks at once.
@@ -212,7 +217,7 @@ Find Smart Bookmark and click the pencil icon next to the shortcut. You can also
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/howoii/SmartBookmark.git
+   git clone https://github.com/ORDOABCHAOWT/SmartBookmark.git
    cd SmartBookmark
    ```
 
@@ -225,7 +230,7 @@ Find Smart Bookmark and click the pencil icon next to the shortcut. You can also
 
 ## Contributing
 
-Contributions are welcome! Report bugs or suggest features via [Issues](https://github.com/howoii/SmartBookmark/issues), or fork and submit a Pull Request.
+Contributions are welcome! Report bugs or suggest features via [Issues](https://github.com/ORDOABCHAOWT/SmartBookmark/issues), or fork and submit a Pull Request.
 
 ---
 
