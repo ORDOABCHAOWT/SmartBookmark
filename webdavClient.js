@@ -10,6 +10,9 @@ class WebDAVClient {
      * @param {string} password - 密码
      */
     constructor(url, username, password) {
+        if (!isSecureEndpointUrl(url, { allowHttpLocalhost: true })) {
+            throw new Error('出于安全考虑，WebDAV 服务器地址必须使用 HTTPS，本地回环地址可使用 HTTP');
+        }
         this.baseUrl = url.endsWith('/') ? url : `${url}/`;
         this.username = username;
         this.password = password;

@@ -71,20 +71,7 @@
             "description": "__MSG_cmd_quick_save__"
         }
     },
-    "externally_connectable": {
-        "matches": [
-            "http://localhost:8080/*"
-        ]
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "http://localhost:8080/*"
-            ],
-            "js": [
-                "versionCheck.js"
-            ],
-            "run_at": "document_idle"
-        }
-    ]
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'none'"
+    }
 }

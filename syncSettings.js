@@ -577,6 +577,13 @@ class WebDAVSyncService extends BaseSyncService {
             };
         }
 
+        if (!isSecureEndpointUrl(config.server.url, { allowHttpLocalhost: true })) {
+            return {
+                valid: false,
+                error: '出于安全考虑，WebDAV 服务器地址必须使用 HTTPS，本地回环地址可使用 HTTP'
+            };
+        }
+
         // 验证用户名和密码
         if (!config.server.username || !config.server.password) {
             return {

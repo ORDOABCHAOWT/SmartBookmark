@@ -411,9 +411,10 @@ class PrivacySettingsTab extends BaseSettingsTab {
         domains.forEach(domain => {
             const domainItem = document.createElement('div');
             domainItem.className = 'domain-item';
+            const safeDomain = escapeHtml(domain);
             domainItem.innerHTML = `
-                <span class="domain-text">${domain}</span>
-                <button class="remove-domain-btn" data-domain="${domain}">×</button>
+                <span class="domain-text">${safeDomain}</span>
+                <button class="remove-domain-btn" data-domain="${safeDomain}">×</button>
             `;
             
             const removeBtn = domainItem.querySelector('.remove-domain-btn');
@@ -1822,7 +1823,7 @@ class FilterSettingsTab extends BaseSettingsTab {
         const tag = document.createElement('div');
         tag.className = 'tag-item';
         tag.innerHTML = `
-            <span>${text}</span>
+            <span>${escapeHtml(text)}</span>
             <span class="remove-tag">×</span>
         `;
         
@@ -1935,11 +1936,12 @@ class FilterSettingsTab extends BaseSettingsTab {
                 item.classList.add('built-in');
             }
             item.dataset.id = rule.id;
+            const safeRuleName = escapeHtml(rule.name || '');
             
             item.innerHTML = `
                 <div class="filter-info">
                     <div class="filter-name">
-                        <span>${rule.name}</span>
+                        <span>${safeRuleName}</span>
                         ${rule.isBuiltIn ? '<span class="built-in-badge">内置</span>' : ''}
                     </div>
                 </div>
@@ -2965,20 +2967,22 @@ class ImportExportSettingsTab extends BaseSettingsTab {
         const logItem = document.createElement('div');
         logItem.className = `log-item ${success ? 'success' : 'error'}`;
         
-        const logStatus = success ? '成功' : `${error}`;
+        const logStatus = success ? '成功' : escapeHtml(`${error}`);
+        const safeTitle = escapeHtml(bookmark.title || '未命名书签');
+        const safeUrl = escapeHtml(bookmark.url || '');
         logItem.innerHTML = `
             <div class="log-title">
                 <span class="title-text">
                     <svg class="bookmark-icon" viewBox="0 0 24 24">
                         <path fill="currentColor" d="M17,3H7A2,2 0 0,0 5,5V21L12,18L19,21V5C19,3.89 18.1,3 17,3Z"/>
                     </svg>
-                    ${bookmark.title || '未命名书签'}
+                    ${safeTitle}
                 </span>
                 <span class="log-status">
                     ${logStatus}
                 </span>
             </div>
-            <div class="log-url">${bookmark.url}</div>
+            <div class="log-url">${safeUrl}</div>
         `;
         
         // 在列表顶部插入新日志

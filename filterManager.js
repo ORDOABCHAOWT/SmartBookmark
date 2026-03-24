@@ -120,7 +120,7 @@ class TagFilter extends BookmarkFilter {
                 tagItem.classList.add('selected');
             }
             tagItem.innerHTML = `
-                <span class="filter-name">${tag}</span>
+                <span class="filter-name">${escapeHtml(tag)}</span>
                 <span class="filter-count">${this.filterCounts.get(tag) || 0}</span>
             `;
             

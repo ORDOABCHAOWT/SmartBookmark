@@ -5,6 +5,221 @@
     <title>快速搜索</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/quickSearch.css">
+    <style>
+        html,
+        body,
+        .dialog-content,
+        .main-content {
+            background: #f7f4ee !important;
+            background-image: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            opacity: 1 !important;
+        }
+
+        body::before,
+        body::after,
+        .dialog-content::before,
+        .dialog-content::after,
+        .search-result-item::after,
+        .pinned-sites::after {
+            display: none !important;
+        }
+
+        .dialog-content {
+            padding: 16px !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .main-content {
+            gap: 12px !important;
+            min-height: 0 !important;
+        }
+
+        .search-input-container {
+            gap: 10px !important;
+            margin-bottom: 6px !important;
+        }
+
+        .search-input-wrapper {
+            display: flex !important;
+            align-items: center !important;
+            min-width: 0 !important;
+        }
+
+        #search-input {
+            width: 100% !important;
+            height: 42px !important;
+            padding: 0 44px 0 14px !important;
+            background: #fffdfa !important;
+            color: #2f2923 !important;
+            border: 2px solid #c96a2b !important;
+            border-radius: 16px !important;
+            box-shadow: none !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            line-height: 42px !important;
+            letter-spacing: 0 !important;
+        }
+
+        #search-input::placeholder {
+            color: #9b9285 !important;
+            opacity: 1 !important;
+        }
+
+        #search-input:focus {
+            outline: none !important;
+            border-color: #c96a2b !important;
+            box-shadow: 0 0 0 1px rgba(201, 106, 43, 0.12) !important;
+        }
+
+        .clear-search-btn,
+        .settings-btn,
+        .edit-toolbar .icon-button,
+        .edit-toolbar-actions .icon-button,
+        .action-btn,
+        .close-menu-btn {
+            background: #fffdfa !important;
+            color: #867869 !important;
+            border: 1px solid #e6dac9 !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+
+        .clear-search-btn {
+            width: 30px !important;
+            height: 30px !important;
+            right: 7px !important;
+            border-radius: 999px !important;
+        }
+
+        .settings-btn {
+            width: 42px !important;
+            height: 42px !important;
+            border-radius: 13px !important;
+        }
+
+        .clear-search-btn:hover,
+        .settings-btn:hover,
+        .edit-toolbar .icon-button:hover,
+        .edit-toolbar-actions .icon-button:hover,
+        .action-btn:hover {
+            background: #f5eee2 !important;
+            color: #c96a2b !important;
+            border-color: #d8c5ae !important;
+            transform: none !important;
+        }
+
+        .recent-searches,
+        .sites-container,
+        .search-results,
+        .edit-toolbar,
+        .modal-content,
+        .status-message,
+        .tags-preview {
+            background: #fbf8f2 !important;
+            border: 1px solid #eadfce !important;
+            border-radius: 18px !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+
+        .recent-searches,
+        .sites-container {
+            overflow: hidden !important;
+        }
+
+        .search-results {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            min-height: 0 !important;
+            max-height: 420px !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+
+        .pinned-sites {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .drop-zone {
+            background: #f5eee2 !important;
+            color: #c96a2b !important;
+            border: 1px dashed #d8c5ae !important;
+        }
+
+        .search-result-item {
+            background: #fffdfa !important;
+            border: 1px solid #eadfce !important;
+            border-radius: 18px !important;
+            box-shadow: none !important;
+            transform: none !important;
+            animation: none !important;
+        }
+
+        .search-result-item:hover,
+        .search-result-item.focused {
+            background: #fffdfa !important;
+            border-color: #d9cbb8 !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+
+        .result-title,
+        .title-text {
+            color: #3a322b !important;
+            font-weight: 600 !important;
+        }
+
+        .result-url {
+            color: #c57441 !important;
+            opacity: 1 !important;
+        }
+
+        .result-excerpt,
+        .source-badge {
+            background: #f8f2e8 !important;
+            color: #827666 !important;
+            border: 1px solid #eadfce !important;
+            box-shadow: none !important;
+        }
+
+        .result-tag {
+            background: #f4efe7 !important;
+            color: #6f68db !important;
+            border: 1px solid #ddd6f6 !important;
+            box-shadow: none !important;
+        }
+
+        .result-tag:hover {
+            background: #efe9ff !important;
+            border-color: #cfc5f6 !important;
+        }
+
+        .search-stats,
+        .edit-toolbar-counter,
+        .result-use-count,
+        .result-metadata,
+        .result-saved-time {
+            color: #9b9285 !important;
+            opacity: 1 !important;
+        }
+
+        .relevance-star,
+        .more-actions-btn {
+            opacity: 1 !important;
+        }
+    </style>
 </head>
 <body>
     <div class="dialog-content">

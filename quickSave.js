@@ -346,10 +346,18 @@ class QuickSaveManager {
         tags.forEach(tag => {
             const tagElement = document.createElement('span');
             tagElement.className = 'tag';
-            tagElement.innerHTML = `
-                <span class="tag-text">${tag}</span>
-                <button class="remove-tag-btn">×</button>
-            `;
+
+            const tagText = document.createElement('span');
+            tagText.className = 'tag-text';
+            tagText.textContent = tag;
+
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-tag-btn';
+            removeButton.type = 'button';
+            removeButton.textContent = '×';
+
+            tagElement.appendChild(tagText);
+            tagElement.appendChild(removeButton);
             tagsList.appendChild(tagElement);
         });
     }
@@ -406,9 +414,13 @@ class QuickSaveManager {
         }
 
         // 渲染标签
-        this.elements.recommendedTagsList.innerHTML = tags
-            .map(tag => `<span class="tag">${tag}</span>`)
-            .join('');
+        this.elements.recommendedTagsList.innerHTML = '';
+        tags.forEach(tag => {
+            const tagElement = document.createElement('span');
+            tagElement.className = 'tag';
+            tagElement.textContent = tag;
+            this.elements.recommendedTagsList.appendChild(tagElement);
+        });
     }
 
     // 验证URL格式

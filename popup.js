@@ -1065,13 +1065,14 @@ class BookmarkManager {
                     logger.debug('API Keys发生变化:', changes[ConfigManager.STORAGE_KEYS.SERVICE_TYPES], changes[ConfigManager.STORAGE_KEYS.SERVICE_TYPES]);
                     this.checkApiKeyConfig(false);
                 }
-                if (changes[ConfigManager.STORAGE_KEYS.API_KEYS]) {
-                    this.checkApiKeyConfig(false);
-                }
                 if (changes[ConfigManager.STORAGE_KEYS.CUSTOM_SERVICES]) {
                     this.checkApiKeyConfig(false);
                 }
             } else if (areaName === 'local') {
+                if (changes[ConfigManager.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS] ||
+                    changes[ConfigManager.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS]) {
+                    this.checkApiKeyConfig(false);
+                }
                 // 监听重新生成索引状态
                 if (changes.isRegeneratingEmbeddings) {
                     this.updateRegeneratingStatus();
@@ -1300,19 +1301,19 @@ class BookmarkManager {
                 // 限制推荐标签数量
                 const maxRecommendedTags = 10;
                 const limitedTags = keywordTags.slice(0, maxRecommendedTags);
-                
-                // 在生成推荐标签的部分
-                const recommendedTagsHtml = `
-                    <div class="recommended-tags-title">推荐标签：</div>
-                    <div class="recommended-tags-list">
-                        ${limitedTags.map(tag => `<span class="tag" data-tag="${tag}">${tag}</span>`).join('')}
-                    </div>
-                `;
-                
-                recommendedTags.innerHTML = recommendedTagsHtml;
-                
-                // 为推荐标签添加点击事件
-                recommendedTags.querySelectorAll('.tag').forEach(tagElement => {
+
+                const titleElement = document.createElement('div');
+                titleElement.className = 'recommended-tags-title';
+                titleElement.textContent = '推荐标签：';
+
+                const listElement = document.createElement('div');
+                listElement.className = 'recommended-tags-list';
+
+                limitedTags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag';
+                    tagElement.dataset.tag = tag;
+                    tagElement.textContent = tag;
                     tagElement.addEventListener('click', () => {
                         const tag = tagElement.dataset.tag;
                         const currentTags = this.getCurrentTags();
@@ -1320,7 +1321,11 @@ class BookmarkManager {
                             this.renderTags([...currentTags, tag]);
                         }
                     });
+                    listElement.appendChild(tagElement);
                 });
+
+                recommendedTags.appendChild(titleElement);
+                recommendedTags.appendChild(listElement);
             }
         }
 
@@ -1338,10 +1343,18 @@ class BookmarkManager {
         tags.forEach(tag => {
             const tagElement = document.createElement('span');
             tagElement.className = 'tag';
-            tagElement.innerHTML = `
-                <span class="tag-text">${tag}</span>
-                <button class="remove-tag-btn">×</button>
-            `;
+
+            const tagText = document.createElement('span');
+            tagText.className = 'tag-text';
+            tagText.textContent = tag;
+
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-tag-btn';
+            removeButton.type = 'button';
+            removeButton.textContent = '×';
+
+            tagElement.appendChild(tagText);
+            tagElement.appendChild(removeButton);
             tagsList.appendChild(tagElement);
         });
     }
@@ -1422,6 +1435,7 @@ function displaySearchResults(results, query) {
 
     // 如果没有搜索结果，显示空状态
     if (results.length === 0) {
+        const safeQuery = escapeHtml(query);
         resultsContainer.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">
@@ -1431,7 +1445,7 @@ function displaySearchResults(results, query) {
                 </div>
                 <div class="empty-message">
                     <div class="empty-title">未找到相关书签</div>
-                    <div class="empty-detail">没有找到与"${query}"相关的书签</div>
+                    <div class="empty-detail">没有找到与"${safeQuery}"相关的书签</div>
                     <div class="empty-suggestion">建议尝试其他关键词</div>
                 </div>
             </div>
@@ -1451,11 +1465,7 @@ function displaySearchResults(results, query) {
         }
 
         // 高亮显示匹配的文本
-        const highlightText = (text) => {
-            if (!text || !query) return text;
-            const regex = new RegExp(`(${query})`, 'gi');
-            return text.replace(regex, '<mark>$1</mark>');
-        };
+        const highlightText = (text) => highlightAndEscapeHtml(text, query);
 
         // 限制摘要长度为一行（约100个字符）
         const truncateExcerpt = (text) => {
@@ -1463,21 +1473,27 @@ function displaySearchResults(results, query) {
             return text.length > 100 ? text.slice(0, 100) + '...' : text;
         };
 
-        const tags = result.tags.map(tag => 
+        const tags = (result.tags || []).map(tag => 
             result.source === BookmarkSource.CHROME ? 
             `<span class="tag folder-tag">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12">
                     <path fill="currentColor" d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/>
                 </svg>
-                ${tag}
+                ${escapeHtml(tag)}
             </span>` :
-            `<span class="tag">${tag}</span>`
+            `<span class="tag">${escapeHtml(tag)}</span>`
         ).join('');
 
         const preview = truncateExcerpt(result.excerpt || '');
 
         // 使用 getFaviconUrl 函数获取图标
         const faviconUrl = await getFaviconUrl(result.url);
+        const safeHref = isNonMarkableUrl(result.url) ? '#' : result.url;
+        const safeTitle = escapeHtml(result.title || '');
+        const safeUrl = escapeHtml(result.url || '');
+        const safePreview = escapeHtml(preview);
+        const safeExcerptTitle = escapeHtml(result.excerpt || '');
+        const safeFaviconUrl = escapeHtml(faviconUrl);
 
         // 修改相关度显示
         const getRelevanceIndicator = (score, similarity) => {
@@ -1523,32 +1539,33 @@ function displaySearchResults(results, query) {
         `;
         
         const formattedDate = result.savedAt ? new Date(result.savedAt).toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'}) : '未知时间';
+        const safeFormattedDate = escapeHtml(formattedDate);
 
         // 添加选择复选框
         li.innerHTML = `
             <div class="bookmark-checkbox">
                 <input type="checkbox" title="选择此书签">
             </div>
-            <a href="${result.url}" class="result-link" target="_blank">
+            <a href="${escapeHtml(safeHref)}" class="result-link" target="_blank">
                 <div class="result-header">
                     <div class="result-title-wrapper">
                         <div class="result-favicon">
-                            <img src="${faviconUrl}" alt="">
+                            <img src="${safeFaviconUrl}" alt="">
                         </div>
-                        <span class="result-title" title="${result.title}">${highlightText(result.title)}</span>
+                        <span class="result-title" title="${safeTitle}">${highlightText(result.title)}</span>
                         ${getRelevanceIndicator(result.score, result.similarity)}
                     </div>
                 </div>
-                <div class="result-url" title="${result.url}">${result.url}</div>
-                <div class="result-preview" title="${result.excerpt || ''}">${preview}</div>
+                <div class="result-url" title="${safeUrl}">${safeUrl}</div>
+                <div class="result-preview" title="${safeExcerptTitle}">${safePreview}</div>
                 <div class="result-tags">${tags}</div>
                 <!-- 书签底部信息栏 -->
                 <div class="result-metadata">
-                    <div class="result-saved-time" title="收藏于 ${formattedDate}">
+                    <div class="result-saved-time" title="收藏于 ${safeFormattedDate}">
                         <svg viewBox="0 0 24 24" width="14" height="14">
                             <path fill="currentColor" d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
                         </svg>
-                        <span>${formattedDate}</span>
+                        <span>${safeFormattedDate}</span>
                     </div>
                 </div>
             </a>
@@ -2090,12 +2107,13 @@ async function renderBookmarksList() {
     } catch (error) {
         logger.error('渲染书签列表失败:', error);
         // 显示错误状态
+        const safeErrorMessage = escapeHtml(error.message || '未知错误');
         bookmarksList.innerHTML = `
             <li class="error-state">
                 <div class="error-message">
                     加载书签失败
                     <br>
-                    ${error.message}
+                    ${safeErrorMessage}
                 </div>
             </li>`;
         updateStatus('加载书签失败: ' + error.message, true);
@@ -2262,6 +2280,9 @@ class BookmarkRenderer {
         const li = document.createElement('li');
         li.className = 'bookmark-item';
         li.dataset.url = bookmark.url;
+        const safeHref = isNonMarkableUrl(bookmark.url) ? '#' : bookmark.url;
+        const safeBookmarkTitle = escapeHtml(bookmark.title || '');
+        const safeFaviconUrl = escapeHtml(await getFaviconUrl(bookmark.url));
 
         const editBtn = bookmark.source === BookmarkSource.EXTENSION
             ? `<button class="edit-btn" title="编辑">
@@ -2275,13 +2296,13 @@ class BookmarkRenderer {
             <div class="bookmark-checkbox">
                 <input type="checkbox" title="选择此书签">
             </div>
-            <a href="${bookmark.url}" class="bookmark-link" target="_blank">
+            <a href="${escapeHtml(safeHref)}" class="bookmark-link" target="_blank">
                 <div class="bookmark-info">
                     <div class="bookmark-main">
                         <div class="bookmark-favicon">
-                            <img src="${await getFaviconUrl(bookmark.url)}" alt="" loading="lazy">
+                            <img src="${safeFaviconUrl}" alt="" loading="lazy">
                         </div>
-                        <h3 class="bookmark-title"">${bookmark.title}</h3>
+                        <h3 class="bookmark-title">${safeBookmarkTitle}</h3>
                         <div class="bookmark-actions">
                             ${editBtn}
                             <button class="delete-btn" title="删除">
@@ -2546,12 +2567,13 @@ class GroupedBookmarkRenderer extends BookmarkRenderer {
             // 创建分组头部
             const header = document.createElement('div');
             header.className = 'group-header';
+            const safeGroupName = escapeHtml(group.name || '未命名分组');
             header.innerHTML = `
                 <svg class="group-toggle collapsed" viewBox="0 0 24 24" width="16" height="16">
                     <path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
                 </svg>
                 <span class="group-title">
-                    ${group.name}
+                    ${safeGroupName}
                     <span class="group-count">${group.bookmarks.length}</span>
                 </span>
             `;
@@ -3063,17 +3085,20 @@ async function renderSearchHistory(query) {
     }
 
     // 清空容器
-    wrapper.innerHTML = history.map(item => `
-        <div class="recent-search-item" data-query="${item.query}" title="${item.query}">
+    wrapper.innerHTML = history.map(item => {
+        const safeQuery = escapeHtml(item.query);
+        return `
+        <div class="recent-search-item" data-query="${safeQuery}" title="${safeQuery}">
             <svg viewBox="0 0 24 24">
                 <path fill="currentColor" d="M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z" />
             </svg>
-            <span>${item.query}</span>
+            <span>${safeQuery}</span>
             <svg class="delete-history-btn" viewBox="0 0 24 24" title="删除此搜索记录">
                 <path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path>
             </svg>
         </div>
-    `).join('');
+    `;
+    }).join('');
     
     // 添加删除按钮点击事件
     wrapper.querySelectorAll('.delete-history-btn').forEach(btn => {
@@ -3312,16 +3337,16 @@ function showTooltip(li, bookmark) {
     
     tooltipTimeout = setTimeout(() => {
         // 根据标签类型使用不同的样式
-        const tags = bookmark.tags.map(tag => {
+        const tags = (bookmark.tags || []).map(tag => {
             if (bookmark.source === BookmarkSource.CHROME) {
                 return `<span class="tag folder-tag">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12">
                         <path fill="currentColor" d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/>
                     </svg>
-                    ${tag}
+                    ${escapeHtml(tag)}
                 </span>`;
             } else {
-                return `<span class="tag">${tag}</span>`;
+                return `<span class="tag">${escapeHtml(tag)}</span>`;
             }
         }).join('');
 
@@ -3522,9 +3547,118 @@ async function initializePopup() {
     }
 }
 
+// ============================================
+// AI 一键归类功能
+// ============================================
+function initAICategorize() {
+    const btn = document.getElementById('ai-categorize-btn');
+    const dialog = document.getElementById('ai-categorize-dialog');
+    const startBtn = document.getElementById('ai-categorize-start');
+    const cancelBtn = document.getElementById('ai-categorize-cancel');
+    const progressContainer = document.getElementById('ai-categorize-progress-container');
+    const progressBar = document.getElementById('ai-categorize-progress-bar');
+    const progressText = document.getElementById('ai-categorize-progress-text');
+    const title = document.getElementById('ai-categorize-title');
+    const desc = document.getElementById('ai-categorize-desc');
+    const resultEl = document.getElementById('ai-categorize-result');
+
+    if (!btn || !dialog) return;
+
+    let isRunning = false;
+
+    // 打开对话框
+    btn.addEventListener('click', () => {
+        // 重置状态
+        progressContainer.style.display = 'none';
+        resultEl.style.display = 'none';
+        startBtn.style.display = '';
+        startBtn.textContent = '开始归类';
+        startBtn.disabled = false;
+        title.textContent = 'AI 智能归类';
+        desc.textContent = '将利用 AI 为所有书签自动生成分类标签';
+        desc.style.display = '';
+        cancelBtn.textContent = '取消';
+        isRunning = false;
+        dialog.classList.add('show');
+    });
+
+    // 关闭对话框
+    cancelBtn.addEventListener('click', () => {
+        if (isRunning) {
+            // 取消归类
+            chrome.runtime.sendMessage({
+                type: MessageType.AI_CATEGORIZE_ALL,
+                data: { action: 'cancel' }
+            });
+            isRunning = false;
+        }
+        dialog.classList.remove('show');
+    });
+
+    // 开始归类
+    startBtn.addEventListener('click', () => {
+        if (isRunning) return;
+        isRunning = true;
+        startBtn.disabled = true;
+        startBtn.textContent = '归类中...';
+        desc.style.display = 'none';
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '正在准备...';
+        resultEl.style.display = 'none';
+
+        chrome.runtime.sendMessage({
+            type: MessageType.AI_CATEGORIZE_ALL,
+            data: { action: 'start' }
+        }, (response) => {
+            isRunning = false;
+            if (response && response.success && response.result) {
+                const r = response.result;
+                progressBar.style.width = '100%';
+                title.textContent = '归类完成!';
+                resultEl.style.display = 'block';
+                resultEl.textContent = `共 ${r.total} 个书签，成功归类 ${r.categorized} 个，失败 ${r.failed} 个`;
+                startBtn.style.display = 'none';
+                cancelBtn.textContent = '关闭';
+            } else {
+                title.textContent = '归类失败';
+                resultEl.style.display = 'block';
+                resultEl.style.color = 'var(--error-text)';
+                resultEl.style.background = 'var(--error-bg)';
+                const errMsg = response?.error || '未知错误，请检查 API 配置';
+                if (errMsg.includes('API Key') || errMsg.includes('未配置')) {
+                    resultEl.innerHTML = `${escapeHtml(errMsg)} <a href="#" id="go-to-settings" style="color:var(--primary);text-decoration:underline;cursor:pointer;">前往设置</a>`;
+                    document.getElementById('go-to-settings')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        chrome.runtime.openOptionsPage();
+                    });
+                } else {
+                    resultEl.textContent = errMsg;
+                }
+                startBtn.disabled = false;
+                startBtn.textContent = '重试';
+                cancelBtn.textContent = '关闭';
+            }
+        });
+    });
+
+    // 监听进度更新
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.type === MessageType.AI_CATEGORIZE_PROGRESS && message.data) {
+            const p = message.data;
+            if (p.total > 0) {
+                const percent = Math.round((p.completed / p.total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = `${p.completed} / ${p.total}（失败 ${p.failed}）`;
+            }
+        }
+    });
+}
+
 // 初始化设置对话框
 document.addEventListener('DOMContentLoaded', async () => {
     await initShortcutKey();
+    initAICategorize();
     initializePopup().catch(error => {
         logger.error('初始化过程中发生错误:', error);
         updateStatus('初始化失败，请刷新页面重试', true);

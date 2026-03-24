@@ -196,7 +196,12 @@ class ImportExportManager {
             const filtersExist = data.data.filters && data.data.filters.rules;
             const apiServicesExist = data.data.apiServices && (
                 Object.keys(data.data.apiServices.customServices || {}).length > 0 ||
-                Object.keys(data.data.apiServices.apiKeys || {}).length > 0
+                Object.keys(data.data.apiServices.apiKeys || {}).length > 0 ||
+                Object.keys(data.data.apiServices.builtinServicesSettings || {}).length > 0 ||
+                data.data.apiServices.activeService ||
+                (data.data.apiServices.serviceTypes &&
+                    (data.data.apiServices.serviceTypes.chat !== undefined ||
+                     data.data.apiServices.serviceTypes.embedding !== undefined))
             );
 
             // 更新复选框状态和统计数字
@@ -221,7 +226,12 @@ class ImportExportManager {
             if (apiServicesExist) {
                 const customServicesCount = Object.keys(data.data.apiServices.customServices || {}).length;
                 const apiKeysCount = Object.keys(data.data.apiServices.apiKeys || {}).length;
-                apiServiceCount = customServicesCount + apiKeysCount;
+                const builtinSettingsCount = Object.keys(data.data.apiServices.builtinServicesSettings || {}).length;
+                const activeServiceCount = data.data.apiServices.activeService ? 1 : 0;
+                const serviceTypesCount = data.data.apiServices.serviceTypes ?
+                    Object.values(data.data.apiServices.serviceTypes).filter(value => value !== undefined).length :
+                    0;
+                apiServiceCount = customServicesCount + apiKeysCount + builtinSettingsCount + activeServiceCount + serviceTypesCount;
             }
             this.apiServiceCount.textContent = apiServiceCount;
             

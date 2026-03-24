@@ -1,6 +1,6 @@
 // background.js
 importScripts('consts.js', 'common.js', 'env.js', 'logger.js', 'i18n.js', 'config.js', 'models.js', 'storageManager.js', 'settingsManager.js', 'statsManager.js',
-     'util.js', 'api.js', 'search.js', 'customFilter.js', 'syncSettingManager.js', 'sync.js', 'webdavClient.js', 'webdavSync.js', 'autoSync.js');
+     'util.js', 'api.js', 'search.js', 'customFilter.js', 'syncSettingManager.js', 'sync.js', 'webdavClient.js', 'webdavSync.js', 'autoSync.js', 'aiCategorizer.js');
 
 EnvIdentifier = 'background';
 // ------------------------------ 辅助函数分割线 ------------------------------
@@ -44,13 +44,36 @@ async function initializeExtension() {
             SettingsManager.init(),
             SyncSettingsManager.init(),
         ]);
-        
+
         // 初始化自动同步系统
         await AutoSyncManager.initialize();
-        
+
+        // 预设通义千问(阿里云百炼)为默认 AI 服务
+        await setupDefaultAIService();
+
         logger.info("扩展初始化完成");
     } catch (error) {
         logger.error("扩展初始化失败:", error);
+    }
+}
+
+// 设置默认 AI 服务，不预置任何密钥
+async function setupDefaultAIService() {
+    try {
+        const defaultServiceId = API_SERVICES.DASHSCOPE.id;
+
+        // 检查是否已有活跃服务配置
+        const data = await chrome.storage.sync.get(['activeService']);
+
+        // 如果没有配置任何服务，设置通义千问为默认
+        if (!data.activeService) {
+            await chrome.storage.sync.set({
+                activeService: defaultServiceId
+            });
+            logger.info('已设置阿里云百炼(通义千问)为默认 AI 服务');
+        }
+    } catch (error) {
+        logger.warn('预设 AI 服务配置失败:', error);
     }
 }
 
@@ -204,6 +227,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             })
             .catch(error => {
                 logger.error('更新书签和向量失败:', error);
+                sendResponse({ success: false, error: error.message });
+            });
+        return true;
+    } else if (message.type === MessageType.AI_CATEGORIZE_ALL) {
+        // AI 一键归类所有书签
+        if (message.data && message.data.action === 'cancel') {
+            aiCategorizer.cancel();
+            sendResponse({ success: true, message: '已取消归类' });
+            return false;
+        }
+        if (message.data && message.data.action === 'progress') {
+            sendResponse({ success: true, progress: aiCategorizer.getProgress() });
+            return false;
+        }
+        aiCategorizer.categorizeAll()
+            .then(result => {
+                sendResponse({ success: true, result: result });
+            })
+            .catch(error => {
+                logger.error('AI 一键归类失败:', error);
                 sendResponse({ success: false, error: error.message });
             });
         return true;

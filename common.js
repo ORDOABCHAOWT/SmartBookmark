@@ -30,7 +30,7 @@ function handleRuntimeError() {
     }
 }
 
-// 添加 XML 转义函数
+// HTML/XML 转义函数 —— 防止 XSS 注入
 function escapeXml(unsafe) {
     if (!unsafe) return '';
     return unsafe
@@ -44,6 +44,59 @@ function escapeXml(unsafe) {
                 default: return c;
             }
         });
+}
+
+// 通用 HTML 转义（用于所有 innerHTML 中的用户数据）
+const escapeHtml = escapeXml;
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightAndEscapeHtml(text, query) {
+    const sourceText = text == null ? '' : String(text);
+    if (!query) {
+        return escapeHtml(sourceText);
+    }
+
+    const normalizedQuery = String(query).trim();
+    if (!normalizedQuery) {
+        return escapeHtml(sourceText);
+    }
+
+    const matcher = new RegExp(`(${escapeRegExp(normalizedQuery)})`, 'gi');
+    return sourceText
+        .split(matcher)
+        .map((part, index) => index % 2 === 1 ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part))
+        .join('');
+}
+
+function parseUrlSafely(url) {
+    try {
+        return new URL(url);
+    } catch (error) {
+        return null;
+    }
+}
+
+function isLoopbackHostname(hostname) {
+    return ['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1'].includes(hostname);
+}
+
+function isSecureEndpointUrl(url, options = {}) {
+    const { allowHttpLocalhost = false } = options;
+    const urlObj = parseUrlSafely(url);
+    if (!urlObj) {
+        return false;
+    }
+
+    if (urlObj.protocol === 'https:') {
+        return true;
+    }
+
+    return allowHttpLocalhost &&
+        urlObj.protocol === 'http:' &&
+        isLoopbackHostname(urlObj.hostname);
 }
 
 // 计算字符串的视觉长度

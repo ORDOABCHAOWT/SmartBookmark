@@ -162,12 +162,14 @@ class SearchManager {
                 }
             }
             
-            // 根据匹配位置微调分数
+            // 根据匹配位置调整分数
             if (hasKeywordMatch) {
-                score += (keywordMatch.title ? 5 : 0) +
-                        (keywordMatch.tags ? 3 : 0) +
-                        (keywordMatch.url ? 2 : 0) +
-                        (keywordMatch.excerpt ? 2 : 0);
+                // 关键词匹配的书签应保证较高的最低分数，避免被仅靠向量相似度的无关结果排在前面
+                const keywordBonus = (keywordMatch.title ? 8 : 0) +
+                        (keywordMatch.tags ? 5 : 0) +
+                        (keywordMatch.url ? 4 : 0) +
+                        (keywordMatch.excerpt ? 3 : 0);
+                score = Math.max(score, 75) + keywordBonus;
             }
             
             score = Math.min(100, Math.max(0, score));
@@ -199,7 +201,7 @@ class SearchManager {
             if (Object.values(item.keywordMatch).some(match => match)) {
                 return true;
             }
-            if (apiService.isCustom) {  
+            if (apiService.isCustom) {
                 if (hideLowSimilarity && item.similarity < highSimilarity) {
                     return false;
                 }

@@ -269,6 +269,10 @@ class SyncSettingsManager {
         if (!config.server.url || !config.server.username || !config.server.password) {
             return false;
         }
+
+        if (!isSecureEndpointUrl(config.server.url, { allowHttpLocalhost: true })) {
+            return false;
+        }
         
         // 验证同步间隔
         if (config.syncStrategy.autoSync) {

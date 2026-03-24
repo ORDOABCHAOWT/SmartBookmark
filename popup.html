@@ -5,6 +5,196 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/popup.css">
+    <style>
+        html,
+        body,
+        .container {
+            background: #f7f4ee !important;
+            background-image: none !important;
+            opacity: 1 !important;
+            filter: none !important;
+        }
+
+        body::before,
+        body::after,
+        .container::before,
+        .bookmark-item::before,
+        .result-item::before,
+        .bookmarks-group::before {
+            display: none !important;
+        }
+
+        .container,
+        .toolbar,
+        .main-content,
+        .controls-container,
+        .bookmarks-container,
+        .search-content,
+        .recent-searches,
+        .filter-dropdown,
+        .sort-dropdown,
+        .filter-menu,
+        .edit-toolbar,
+        .search-edit-toolbar,
+        .status-message {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
+            filter: none !important;
+            opacity: 1 !important;
+        }
+
+        .toolbar {
+            margin: 0 !important;
+            padding: 10px 14px !important;
+            min-height: 74px !important;
+            border: none !important;
+            border-bottom: 1px solid #e6dac9 !important;
+            border-radius: 0 !important;
+            background: #fbf8f2 !important;
+        }
+
+        .toolbar-search {
+            padding: 8px 0 !important;
+            gap: 14px !important;
+            align-items: center !important;
+            background: transparent !important;
+        }
+
+        .toolbar-search .search-input-wrapper {
+            display: flex !important;
+            align-items: center !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+
+        .toolbar-search #search-input {
+            width: 100% !important;
+            height: 56px !important;
+            padding: 0 66px 0 20px !important;
+            background: #fffdfa !important;
+            color: #2f2923 !important;
+            border: 3px solid #d8c5ae !important;
+            border-radius: 24px !important;
+            box-shadow: none !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            line-height: 56px !important;
+            letter-spacing: 0 !important;
+        }
+
+        .toolbar-search #search-input::placeholder {
+            color: #9b9285 !important;
+            opacity: 1 !important;
+        }
+
+        .toolbar-search #search-input:focus {
+            border-color: #c96a2b !important;
+            box-shadow: 0 0 0 2px rgba(201, 106, 43, 0.12) !important;
+            outline: none !important;
+        }
+
+        .toolbar-search #close-search,
+        .toolbar .icon-button {
+            background: #fffdfa !important;
+            color: #85796b !important;
+            border: 1px solid #e6dac9 !important;
+            box-shadow: none !important;
+        }
+
+        .toolbar-search #close-search {
+            width: 44px !important;
+            height: 44px !important;
+            margin-left: 12px !important;
+            border-radius: 999px !important;
+        }
+
+        .toolbar-search #close-search svg {
+            width: 22px !important;
+            height: 22px !important;
+        }
+
+        .controls-container {
+            background: #fbf8f2 !important;
+            border: 1px solid #eadfce !important;
+            border-radius: 16px !important;
+        }
+
+        .bookmarks-container,
+        .search-content {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        .bookmark-item,
+        .result-item,
+        .bookmarks-group {
+            background: #fffdfa !important;
+            border: 1px solid #eadfce !important;
+            border-radius: 18px !important;
+            box-shadow: none !important;
+        }
+
+        .bookmark-item:hover,
+        .result-item:hover,
+        .bookmarks-group:hover {
+            background: #fffdfa !important;
+            border-color: #d9cbb8 !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+
+        .bookmark-title,
+        .result-title {
+            color: #3a322b !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+        }
+
+        .bookmark-url,
+        .result-url {
+            color: #c57441 !important;
+            opacity: 1 !important;
+        }
+
+        .bookmark-favicon,
+        .result-favicon,
+        .bookmark-excerpt,
+        .bookmark-description,
+        .result-preview,
+        .result-excerpt,
+        .bookmark-count-wrapper,
+        .api-key-notice,
+        .regenerating-status {
+            background: #f8f2e8 !important;
+            border: 1px solid #eadfce !important;
+            box-shadow: none !important;
+        }
+
+        .bookmark-tag,
+        .result-tag,
+        .tag-item,
+        .folder-tag,
+        .filter-chip {
+            background: #f4efe7 !important;
+            color: #6f68db !important;
+            border: 1px solid #ddd6f6 !important;
+            box-shadow: none !important;
+        }
+
+        .search-stats,
+        .bookmark-count,
+        .result-metadata,
+        .result-saved-time {
+            color: #9b9285 !important;
+            opacity: 1 !important;
+        }
+
+        .relevance-star,
+        .more-actions-btn {
+            opacity: 1 !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -72,6 +262,11 @@
                 </div>
 
                 <div class="toolbar-actions">
+                    <button id="ai-categorize-btn" class="icon-button" title="AI 一键归类全部书签">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                        </svg>
+                    </button>
                     <button id="toggle-search" class="icon-button" title="搜索书签 Cmd/Ctrl+K">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path fill="currentColor"
@@ -270,6 +465,35 @@
             </div>
         </div>
     </div>
+    <!-- AI 归类进度对话框 -->
+    <div id="ai-categorize-dialog" class="dialog">
+        <div class="dialog-content" style="text-align: center;">
+            <div style="margin-bottom: 16px;">
+                <svg viewBox="0 0 24 24" width="48" height="48" style="color: var(--primary-color);">
+                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+            </div>
+            <h3 id="ai-categorize-title" style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">AI 智能归类</h3>
+            <p id="ai-categorize-desc" style="margin: 0 0 16px 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                将利用 AI 为所有书签自动生成分类标签
+            </p>
+            <!-- 进度条 -->
+            <div id="ai-categorize-progress-container" style="display: none; margin-bottom: 16px;">
+                <div style="background: var(--glass-bg, rgba(0,0,0,0.06)); border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 8px;">
+                    <div id="ai-categorize-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary-color), var(--action-color)); border-radius: 999px; transition: width 0.3s ease;"></div>
+                </div>
+                <span id="ai-categorize-progress-text" style="font-size: 12px; color: var(--text-tertiary);">0 / 0</span>
+            </div>
+            <!-- 结果信息 -->
+            <p id="ai-categorize-result" style="display: none; margin: 0 0 16px 0; font-size: 13px; color: var(--success-text); background: var(--success-bg); padding: 8px 12px; border-radius: var(--radius-sm, 8px);"></p>
+            <!-- 按钮 -->
+            <div style="display: flex; gap: 8px; justify-content: center;">
+                <button id="ai-categorize-cancel" style="padding: 8px 20px; border-radius: var(--radius-sm, 8px); border: 1px solid var(--glass-border, #ddd); background: var(--glass-button-bg, rgba(255,255,255,0.2)); color: var(--text-primary); cursor: pointer; font-size: 14px; backdrop-filter: blur(6px);">取消</button>
+                <button id="ai-categorize-start" style="padding: 8px 20px; border-radius: var(--radius-sm, 8px); border: none; background: linear-gradient(135deg, var(--primary-color), var(--action-color)); color: white; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(var(--primary-color-rgb, 88,86,214), 0.25);">开始归类</button>
+            </div>
+        </div>
+    </div>
+
     <div id="tags-dialog" class="dialog">
         <div class="dialog-content">
             <div class="dialog-header">
@@ -546,6 +770,7 @@
     <script src="filterManager.js"></script>
     <script src="search.js"></script>
     <script src="bookmarkEditManager.js"></script>
+    <script src="aiCategorizer.js"></script>
     <script src="popup.js"></script>
 </body>
 

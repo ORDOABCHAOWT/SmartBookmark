@@ -2,3 +2,10 @@ build/
 .DS_Store
 .idea
 .vscode
+.env
+.env.*
+*.local
+*.local.json
+*.secret
+*.secret.json
+smart-bookmark-*.json

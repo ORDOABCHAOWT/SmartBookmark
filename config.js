@@ -120,6 +120,9 @@ const MAX_CUSTOM_SERVICES = 11;
 
 class ConfigManager {
     static STORAGE = chrome.storage.sync;
+    static SECRET_STORAGE = chrome.storage.local;
+    static _secretMigrationPromise = null;
+    static _secretsMigrated = false;
     
     static STORAGE_KEYS = {
         ACTIVE_SERVICE: 'activeService',
@@ -130,16 +133,26 @@ class ConfigManager {
         SERVICE_TYPES: 'serviceTypes'
     };
 
+    static SECRET_STORAGE_KEYS = {
+        BUILTIN_API_KEYS: 'secret_builtin_api_keys',
+        CUSTOM_SERVICE_API_KEYS: 'secret_custom_service_api_keys',
+        MIGRATION_DONE: 'secret_storage_migration_v1'
+    };
+
     static async getServiceExportData() {
+        await this.ensureSecretsStoredLocally();
+
         const exportKeys = [
             this.STORAGE_KEYS.ACTIVE_SERVICE,
-            this.STORAGE_KEYS.API_KEYS,
             this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS,
-            this.STORAGE_KEYS.CUSTOM_SERVICES,
             this.STORAGE_KEYS.SERVICE_TYPES
         ];
         try {
             const data = await this.STORAGE.get(exportKeys);
+            const customServices = await this.getStoredCustomServices();
+            if (Object.keys(customServices).length > 0) {
+                data[this.STORAGE_KEYS.CUSTOM_SERVICES] = customServices;
+            }
             logger.debug('获取服务导出数据:', data);
             return data;
         } catch (error) {
@@ -160,6 +173,220 @@ class ConfigManager {
             logger.error('获取配置导出数据失败:', error);
             return {};
         }
+    }
+
+    static getBuiltinServiceIds() {
+        return Object.values(API_SERVICES).map(service => service.id);
+    }
+
+    static isBuiltinServiceId(serviceId) {
+        return this.getBuiltinServiceIds().includes(serviceId);
+    }
+
+    static isValidServiceId(serviceId, customServices = {}) {
+        if (!serviceId) {
+            return false;
+        }
+        return this.isBuiltinServiceId(serviceId) || Boolean(customServices[serviceId]);
+    }
+
+    static normalizeCustomServiceConfig(serviceId, config, options = {}) {
+        const allowMissingApiKey = options.allowMissingApiKey === true;
+        if (!config || typeof config !== 'object') {
+            throw new Error('无效的自定义服务配置');
+        }
+
+        const normalizedConfig = {
+            id: typeof serviceId === 'string' && serviceId.trim() ?
+                serviceId.trim() :
+                (typeof config.id === 'string' ? config.id.trim() : ''),
+            name: typeof config.name === 'string' ? config.name.trim() : '',
+            baseUrl: typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '',
+            chatModel: typeof config.chatModel === 'string' ? config.chatModel.trim() : '',
+            embedModel: typeof config.embedModel === 'string' ? config.embedModel.trim() : '',
+            apiKey: typeof config.apiKey === 'string' ? config.apiKey.trim() : '',
+            highSimilarity: Number.parseFloat(config.highSimilarity),
+            hideLowSimilarity: config.hideLowSimilarity === true
+        };
+
+        if (!normalizedConfig.id) {
+            throw new Error('无效的服务ID');
+        }
+        if (!normalizedConfig.name || !normalizedConfig.baseUrl || (!allowMissingApiKey && !normalizedConfig.apiKey)) {
+            throw new Error('请填写服务名称、API接口地址和API Key');
+        }
+        if (!normalizedConfig.chatModel && !normalizedConfig.embedModel) {
+            throw new Error('文本模型和向量模型至少填写一个');
+        }
+        if (!isSecureEndpointUrl(normalizedConfig.baseUrl, { allowHttpLocalhost: true })) {
+            throw new Error('出于安全考虑，自定义服务地址必须使用 HTTPS，本地回环地址可使用 HTTP');
+        }
+
+        if (Number.isNaN(normalizedConfig.highSimilarity)) {
+            normalizedConfig.highSimilarity = 0.35;
+        } else {
+            normalizedConfig.highSimilarity = Math.min(1, Math.max(0, normalizedConfig.highSimilarity));
+        }
+
+        return normalizedConfig;
+    }
+
+    static sanitizeCustomServicesMap(services, options = {}) {
+        if (!services || typeof services !== 'object') {
+            return {};
+        }
+
+        const sanitizedServices = {};
+        for (const [serviceId, serviceConfig] of Object.entries(services)) {
+            try {
+                const normalizedService = this.normalizeCustomServiceConfig(serviceId, serviceConfig, options);
+                sanitizedServices[normalizedService.id] = normalizedService;
+            } catch (error) {
+                logger.warn('跳过无效的自定义服务配置', {
+                    serviceId,
+                    error: error.message
+                });
+            }
+        }
+
+        return sanitizedServices;
+    }
+
+    static stripCustomServiceSecret(config) {
+        if (!config || typeof config !== 'object') {
+            return config;
+        }
+        const { apiKey, ...serviceWithoutSecret } = config;
+        return serviceWithoutSecret;
+    }
+
+    static async getSecretMap(secretKey) {
+        try {
+            const data = await this.SECRET_STORAGE.get(secretKey);
+            const secretMap = data[secretKey];
+            if (!secretMap || typeof secretMap !== 'object') {
+                return {};
+            }
+            return secretMap;
+        } catch (error) {
+            logger.error('获取本地敏感配置失败:', error);
+            return {};
+        }
+    }
+
+    static async setSecretMap(secretKey, secretMap) {
+        await this.SECRET_STORAGE.set({
+            [secretKey]: secretMap
+        });
+    }
+
+    static async getStoredCustomServices() {
+        const data = await this.STORAGE.get(this.STORAGE_KEYS.CUSTOM_SERVICES);
+        const customServices = this.sanitizeCustomServicesMap(
+            data[this.STORAGE_KEYS.CUSTOM_SERVICES],
+            { allowMissingApiKey: true }
+        );
+        return Object.fromEntries(
+            Object.entries(customServices).map(([serviceId, serviceConfig]) => [
+                serviceId,
+                this.stripCustomServiceSecret(serviceConfig)
+            ])
+        );
+    }
+
+    static async ensureSecretsStoredLocally() {
+        if (this._secretsMigrated) {
+            return;
+        }
+        if (this._secretMigrationPromise) {
+            await this._secretMigrationPromise;
+            return;
+        }
+
+        this._secretMigrationPromise = (async () => {
+            try {
+                const migrationFlagData = await this.SECRET_STORAGE.get(this.SECRET_STORAGE_KEYS.MIGRATION_DONE);
+                const migrationDone = migrationFlagData[this.SECRET_STORAGE_KEYS.MIGRATION_DONE] === true;
+                const syncData = await this.STORAGE.get([
+                    this.STORAGE_KEYS.API_KEYS,
+                    this.STORAGE_KEYS.CUSTOM_SERVICES
+                ]);
+
+                const legacyBuiltinApiKeys = syncData[this.STORAGE_KEYS.API_KEYS] || {};
+                const legacyCustomServices = syncData[this.STORAGE_KEYS.CUSTOM_SERVICES] || {};
+                const hasLegacyBuiltinApiKeys = Object.keys(legacyBuiltinApiKeys).length > 0;
+                const hasLegacyCustomServiceSecrets = Object.values(legacyCustomServices).some(service =>
+                    service &&
+                    typeof service === 'object' &&
+                    typeof service.apiKey === 'string' &&
+                    service.apiKey.trim().length > 0
+                );
+
+                if (migrationDone && !hasLegacyBuiltinApiKeys && !hasLegacyCustomServiceSecrets) {
+                    this._secretsMigrated = true;
+                    return;
+                }
+
+                const builtinApiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS);
+                const customServiceApiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS);
+                let secretChanged = false;
+
+                for (const [serviceId, apiKey] of Object.entries(legacyBuiltinApiKeys)) {
+                    if (!this.isBuiltinServiceId(serviceId) || typeof apiKey !== 'string' || !apiKey.trim()) {
+                        continue;
+                    }
+                    builtinApiKeys[serviceId] = apiKey.trim();
+                    secretChanged = true;
+                }
+
+                const sanitizedCustomServices = {};
+                let customServicesChanged = false;
+                for (const [serviceId, serviceConfig] of Object.entries(legacyCustomServices)) {
+                    if (!serviceConfig || typeof serviceConfig !== 'object') {
+                        continue;
+                    }
+                    const nextConfig = { ...serviceConfig };
+                    if (typeof nextConfig.apiKey === 'string' && nextConfig.apiKey.trim()) {
+                        customServiceApiKeys[serviceId] = nextConfig.apiKey.trim();
+                        secretChanged = true;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(nextConfig, 'apiKey')) {
+                        delete nextConfig.apiKey;
+                        customServicesChanged = true;
+                    }
+                    sanitizedCustomServices[serviceId] = nextConfig;
+                }
+
+                if (secretChanged) {
+                    await this.SECRET_STORAGE.set({
+                        [this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS]: builtinApiKeys,
+                        [this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS]: customServiceApiKeys
+                    });
+                }
+
+                if (hasLegacyBuiltinApiKeys) {
+                    await this.STORAGE.remove(this.STORAGE_KEYS.API_KEYS);
+                }
+
+                if (customServicesChanged) {
+                    await this.STORAGE.set({
+                        [this.STORAGE_KEYS.CUSTOM_SERVICES]: sanitizedCustomServices
+                    });
+                }
+
+                await this.SECRET_STORAGE.set({
+                    [this.SECRET_STORAGE_KEYS.MIGRATION_DONE]: true
+                });
+                this._secretsMigrated = true;
+            } catch (error) {
+                logger.error('迁移本地敏感配置失败:', error);
+                throw error;
+            } finally {
+                this._secretMigrationPromise = null;
+            }
+        })();
+
+        await this._secretMigrationPromise;
     }
 
     // 通过API_SERVICES的id获取服务对象
@@ -196,7 +423,7 @@ class ConfigManager {
                 return service;
             }
 
-            activeServiceId = API_SERVICES.OPENAI.id;
+            activeServiceId = API_SERVICES.DASHSCOPE.id;
             service = await this.findServiceById(activeServiceId);
             return service;
         } catch (error) {
@@ -311,8 +538,8 @@ class ConfigManager {
 
     static async getBuiltinAPIKey(serviceId) {
         try {
-            const data = await this.STORAGE.get(this.STORAGE_KEYS.API_KEYS);
-            const apiKeys = data[this.STORAGE_KEYS.API_KEYS] || {};
+            await this.ensureSecretsStoredLocally();
+            const apiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS);
             return apiKeys[serviceId] || null;
         } catch (error) {
             logger.error('获取内置服务 API Key 失败:', error);
@@ -346,15 +573,13 @@ class ConfigManager {
             // 验证 API Key 是否可用
             await this.verifyAPIKey(serviceId, apiKey, setting?.chatModel);
 
-            // 获取现有的 API Keys
-            const data = await this.STORAGE.get(this.STORAGE_KEYS.API_KEYS);
-            const apiKeys = data[this.STORAGE_KEYS.API_KEYS] || {};
+            await this.ensureSecretsStoredLocally();
+            const apiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS);
 
             // 更新数据
-            apiKeys[serviceId] = apiKey;
-            await this.STORAGE.set({
-                [this.STORAGE_KEYS.API_KEYS]: apiKeys
-            });
+            apiKeys[serviceId] = apiKey.trim();
+            await this.setSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS, apiKeys);
+            await this.STORAGE.remove(this.STORAGE_KEYS.API_KEYS);
 
             // 更新service设置
             const serviceSettings = await this.getBuiltinServiceSettings();
@@ -387,10 +612,12 @@ class ConfigManager {
     // 添加新方法用于获取自定义服务配置
     static async getCustomServices() {
         try {
-            const data = await this.STORAGE.get(this.STORAGE_KEYS.CUSTOM_SERVICES);
-            const customServices = data[this.STORAGE_KEYS.CUSTOM_SERVICES] || {};
+            await this.ensureSecretsStoredLocally();
+            const customServices = await this.getStoredCustomServices();
+            const customServiceApiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS);
             for (const service of Object.values(customServices)) {
                 service.isCustom = true;
+                service.apiKey = customServiceApiKeys[service.id] || '';
             }
             return customServices;
         } catch (error) {
@@ -402,19 +629,25 @@ class ConfigManager {
     // 添加新方法用于保存自定义服务配置
     static async saveCustomService(config) {
         try {
-            const customServices = await this.getCustomServices();
-            if (customServices[config.id]) {
-                customServices[config.id] = config;
-            }else {
+            const normalizedConfig = this.normalizeCustomServiceConfig(config.id, config);
+            await this.ensureSecretsStoredLocally();
+            const customServices = await this.getStoredCustomServices();
+            if (customServices[normalizedConfig.id]) {
+                customServices[normalizedConfig.id] = this.stripCustomServiceSecret(normalizedConfig);
+            } else {
                 if (Object.keys(customServices).length >= MAX_CUSTOM_SERVICES) {
                     throw new Error('自定义服务数量已达到最大限制');
                 }
-                customServices[config.id] = config;
+                customServices[normalizedConfig.id] = this.stripCustomServiceSecret(normalizedConfig);
             }
+
+            const customServiceApiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS);
+            customServiceApiKeys[normalizedConfig.id] = normalizedConfig.apiKey.trim();
 
             await this.STORAGE.set({
                 [this.STORAGE_KEYS.CUSTOM_SERVICES]: customServices
             });
+            await this.setSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS, customServiceApiKeys);
         } catch (error) {
             logger.error('保存自定义服务配置失败:', error);
             throw error;
@@ -423,7 +656,7 @@ class ConfigManager {
 
     static async deleteCustomService(serviceId) {
         try {
-            const customServices = await this.getCustomServices();
+            const customServices = await this.getStoredCustomServices();
             
             // 检查服务是否存在
             if (!customServices[serviceId]) {
@@ -444,6 +677,9 @@ class ConfigManager {
             await this.STORAGE.set({
                 [this.STORAGE_KEYS.CUSTOM_SERVICES]: customServices
             });
+            const customServiceApiKeys = await this.getSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS);
+            delete customServiceApiKeys[serviceId];
+            await this.setSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS, customServiceApiKeys);
         } catch (error) {
             logger.error('删除自定义服务失败:', error);
             throw error;
@@ -457,6 +693,9 @@ class ConfigManager {
                 new URL(baseUrl);
             } catch (error) {
                 throw new Error('无效的API服务URL');
+            }
+            if (!isSecureEndpointUrl(baseUrl, { allowHttpLocalhost: true })) {
+                throw new Error('出于安全考虑，自定义服务地址必须使用 HTTPS，本地回环地址可使用 HTTP');
             }
             if (!apiKey) {
                 throw new Error('API Key 不能为空');
@@ -523,6 +762,9 @@ class ConfigManager {
                 new URL(baseUrl);
             } catch (error) {
                 throw new Error('无效的API服务URL');
+            }
+            if (!isSecureEndpointUrl(baseUrl, { allowHttpLocalhost: true })) {
+                throw new Error('出于安全考虑，自定义服务地址必须使用 HTTPS，本地回环地址可使用 HTTP');
             }
             if (!apiKey) {
                 throw new Error('API Key 不能为空');
@@ -688,67 +930,161 @@ class ConfigManager {
 
     static async importServiceData(data, isOverwrite = false) {
         try {
-            // 验证数据
-            const validKeys = [
-                this.STORAGE_KEYS.ACTIVE_SERVICE,
-                this.STORAGE_KEYS.API_KEYS,
-                this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS,
-                this.STORAGE_KEYS.CUSTOM_SERVICES,
-                this.STORAGE_KEYS.SERVICE_TYPES
-            ];
+            await this.ensureSecretsStoredLocally();
             const importData = {};
+            let hasImportedSecrets = false;
+            const builtinServiceIds = new Set(this.getBuiltinServiceIds());
+            const currentCustomServicesData = !isOverwrite ?
+                (await this.STORAGE.get(this.STORAGE_KEYS.CUSTOM_SERVICES))[this.STORAGE_KEYS.CUSTOM_SERVICES] || {} :
+                {};
+            const currentCustomServices = this.sanitizeCustomServicesMap(currentCustomServicesData, { allowMissingApiKey: true });
+            const importedCustomServices = this.sanitizeCustomServicesMap(data?.[this.STORAGE_KEYS.CUSTOM_SERVICES], { allowMissingApiKey: true });
 
-            // 检查并处理每个key
-            for (const key of validKeys) {
-                if (data[key]) {
-                    if (key === this.STORAGE_KEYS.CUSTOM_SERVICES) {
-                        // 处理自定义服务
-                        const customServices = data[key];
-                        if (!isOverwrite) {
-                            // 合并模式：获取现有服务
-                            const currentServices = await this.getCustomServices();
-                            importData[key] = { ...currentServices, ...customServices };
-                        } else {
-                            importData[key] = customServices;
-                        }
-                        
-                        // 检查数量限制
-                        const serviceEntries = Object.entries(importData[key]);
-                        if (serviceEntries.length > MAX_CUSTOM_SERVICES) {
-                            logger.warn(`自定义服务数量超过限制(${MAX_CUSTOM_SERVICES})，仅导入前${MAX_CUSTOM_SERVICES}个`);
-                            importData[key] = Object.fromEntries(serviceEntries.slice(0, MAX_CUSTOM_SERVICES));
-                        }
-                    } else if (key === this.STORAGE_KEYS.API_KEYS) {
-                        // 处理API Keys
-                        if (!isOverwrite) {
-                            // 合并模式：获取现有API Keys
-                            const currentData = await this.STORAGE.get(key);
-                            const currentApiKeys = currentData[key] || {};
-                            importData[key] = { ...currentApiKeys, ...data[key] };
-                        } else {
-                            importData[key] = data[key];
-                        }
-                    } else if (key === this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS) {
-                        // 处理内置服务设置
-                        if (!isOverwrite) {
-                            // 合并模式：获取现有设置
-                            const currentSettings = await this.getBuiltinServiceSettings();
-                            importData[key] = { ...currentSettings, ...data[key] };
-                        } else {
-                            importData[key] = data[key];
-                        }
-                    } else if (key === this.STORAGE_KEYS.SERVICE_TYPES) {
-                        // 处理服务类型设置
-                        if (!isOverwrite) {
-                            // 合并模式：获取现有服务类型设置
-                            const currentServiceTypes = await this.getServiceTypeConfig();
-                            importData[key] = { ...currentServiceTypes, ...data[key] };
-                        } else {
-                            importData[key] = data[key];
-                        }
-                    } else if (key === this.STORAGE_KEYS.ACTIVE_SERVICE) {
-                        importData[key] = data[key];
+            const currentBuiltinApiKeys = !isOverwrite ?
+                await this.getSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS) :
+                {};
+            const currentCustomServiceApiKeys = !isOverwrite ?
+                await this.getSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS) :
+                {};
+
+            let sanitizedCustomServices = isOverwrite ?
+                importedCustomServices :
+                { ...currentCustomServices, ...importedCustomServices };
+
+            const serviceEntries = Object.entries(sanitizedCustomServices);
+            if (serviceEntries.length > MAX_CUSTOM_SERVICES) {
+                logger.warn(`自定义服务数量超过限制(${MAX_CUSTOM_SERVICES})，仅保留前${MAX_CUSTOM_SERVICES}个`);
+                sanitizedCustomServices = Object.fromEntries(serviceEntries.slice(0, MAX_CUSTOM_SERVICES));
+            }
+            if (Object.keys(sanitizedCustomServices).length > 0) {
+                importData[this.STORAGE_KEYS.CUSTOM_SERVICES] = Object.fromEntries(
+                    Object.entries(sanitizedCustomServices).map(([serviceId, serviceConfig]) => [
+                        serviceId,
+                        this.stripCustomServiceSecret(serviceConfig)
+                    ])
+                );
+            } else if (isOverwrite && data?.hasOwnProperty(this.STORAGE_KEYS.CUSTOM_SERVICES)) {
+                importData[this.STORAGE_KEYS.CUSTOM_SERVICES] = {};
+            }
+
+            const collectCustomServiceApiKeys = (services) => {
+                if (!services || typeof services !== 'object') {
+                    return {};
+                }
+                return Object.fromEntries(
+                    Object.entries(services)
+                        .filter(([, serviceConfig]) =>
+                            serviceConfig &&
+                            typeof serviceConfig === 'object' &&
+                            typeof serviceConfig.apiKey === 'string' &&
+                            serviceConfig.apiKey.trim().length > 0
+                        )
+                        .map(([serviceId, serviceConfig]) => [serviceId, serviceConfig.apiKey.trim()])
+                );
+            };
+
+            const nextCustomServiceApiKeys = isOverwrite ?
+                collectCustomServiceApiKeys(data?.[this.STORAGE_KEYS.CUSTOM_SERVICES]) :
+                {
+                    ...currentCustomServiceApiKeys,
+                    ...collectCustomServiceApiKeys(data?.[this.STORAGE_KEYS.CUSTOM_SERVICES])
+                };
+            const limitedCustomServiceIds = new Set(Object.keys(sanitizedCustomServices));
+            const prunedCustomServiceApiKeys = Object.fromEntries(
+                Object.entries(nextCustomServiceApiKeys).filter(([serviceId]) => limitedCustomServiceIds.has(serviceId))
+            );
+
+            if (data?.hasOwnProperty(this.STORAGE_KEYS.API_KEYS)) {
+                const importedApiKeys = data[this.STORAGE_KEYS.API_KEYS];
+                const sanitizeBuiltinKeys = (apiKeys) => {
+                    if (!apiKeys || typeof apiKeys !== 'object') {
+                        return {};
                     }
+                    return Object.fromEntries(
+                        Object.entries(apiKeys)
+                            .filter(([serviceId, apiKey]) =>
+                                builtinServiceIds.has(serviceId) &&
+                                typeof apiKey === 'string' &&
+                                apiKey.trim().length > 0
+                            )
+                            .map(([serviceId, apiKey]) => [serviceId, apiKey.trim()])
+                    );
+                };
+                const nextBuiltinApiKeys = isOverwrite ?
+                    sanitizeBuiltinKeys(importedApiKeys) :
+                    {
+                        ...sanitizeBuiltinKeys(currentBuiltinApiKeys),
+                        ...sanitizeBuiltinKeys(importedApiKeys)
+                    };
+                await this.setSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS, nextBuiltinApiKeys);
+                hasImportedSecrets = hasImportedSecrets || Object.keys(nextBuiltinApiKeys).length > 0;
+            } else if (isOverwrite) {
+                await this.setSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS, currentBuiltinApiKeys);
+            }
+
+            await this.setSecretMap(this.SECRET_STORAGE_KEYS.CUSTOM_SERVICE_API_KEYS, prunedCustomServiceApiKeys);
+            hasImportedSecrets = hasImportedSecrets || Object.keys(prunedCustomServiceApiKeys).length > 0;
+            await this.STORAGE.remove(this.STORAGE_KEYS.API_KEYS);
+
+            if (data?.hasOwnProperty(this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS)) {
+                const currentSettings = !isOverwrite ? await this.getBuiltinServiceSettings() : {};
+                const importedSettings = data[this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS];
+                const sanitizeBuiltinSettings = (settingsMap) => {
+                    if (!settingsMap || typeof settingsMap !== 'object') {
+                        return {};
+                    }
+                    return Object.fromEntries(
+                        Object.entries(settingsMap).filter(([serviceId, setting]) =>
+                            builtinServiceIds.has(serviceId) &&
+                            setting &&
+                            typeof setting === 'object'
+                        )
+                    );
+                };
+                importData[this.STORAGE_KEYS.BUILTIN_SERVICES_SETTINGS] = isOverwrite ?
+                    sanitizeBuiltinSettings(importedSettings) :
+                    {
+                        ...sanitizeBuiltinSettings(currentSettings),
+                        ...sanitizeBuiltinSettings(importedSettings)
+                    };
+            }
+
+            if (data?.hasOwnProperty(this.STORAGE_KEYS.SERVICE_TYPES)) {
+                const currentServiceTypes = !isOverwrite ?
+                    await this.getServiceTypeConfig() :
+                    { chat: null, embedding: null };
+                const importedServiceTypes = data[this.STORAGE_KEYS.SERVICE_TYPES];
+                const nextServiceTypes = { ...currentServiceTypes };
+
+                if (importedServiceTypes && typeof importedServiceTypes === 'object') {
+                    for (const type of ['chat', 'embedding']) {
+                        if (!importedServiceTypes.hasOwnProperty(type)) {
+                            continue;
+                        }
+                        const serviceId = importedServiceTypes[type];
+                        if (serviceId === null || this.isValidServiceId(serviceId, sanitizedCustomServices)) {
+                            nextServiceTypes[type] = serviceId;
+                        } else {
+                            logger.warn('跳过无效的服务类型配置', {
+                                type,
+                                serviceId
+                            });
+                            if (isOverwrite) {
+                                nextServiceTypes[type] = null;
+                            }
+                        }
+                    }
+                }
+
+                importData[this.STORAGE_KEYS.SERVICE_TYPES] = nextServiceTypes;
+            }
+
+            if (data?.hasOwnProperty(this.STORAGE_KEYS.ACTIVE_SERVICE)) {
+                const activeServiceId = data[this.STORAGE_KEYS.ACTIVE_SERVICE];
+                if (this.isValidServiceId(activeServiceId, sanitizedCustomServices)) {
+                    importData[this.STORAGE_KEYS.ACTIVE_SERVICE] = activeServiceId;
+                } else if (isOverwrite && typeof activeServiceId === 'string') {
+                    logger.warn('跳过无效的激活服务配置', { activeServiceId });
                 }
             }
 
@@ -757,7 +1093,7 @@ class ConfigManager {
                 await this.STORAGE.set(importData);
                 return true;
             }
-            return false;
+            return hasImportedSecrets;
         } catch (error) {
             logger.error('导入服务数据失败:', error);
             throw error;

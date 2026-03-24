@@ -801,18 +801,21 @@ class QuickSearchManager {
         }
 
         // 清空容器并添加新的历史记录
-        wrapper.innerHTML = history.map(item => `
-            <div class="recent-search-item" data-query="${item.query}" title="${item.query}">
+        wrapper.innerHTML = history.map(item => {
+            const safeQuery = escapeHtml(item.query);
+            return `
+            <div class="recent-search-item" data-query="${safeQuery}" title="${safeQuery}">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <span>${item.query}</span>
+                <span>${safeQuery}</span>
                 <svg class="delete-history-btn" viewBox="0 0 24 24" title="删除此搜索记录">
                     <path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
                 </svg>
             </div>
-        `).join('');
+        `;
+        }).join('');
         
         // 添加删除按钮点击事件
         wrapper.querySelectorAll('.delete-history-btn').forEach(btn => {
@@ -1045,34 +1048,40 @@ class QuickSearchManager {
         // 生成相关度星级
         const relevanceStarsHtml = this.getRelevanceStarsHtml(result.score, result.similarity);
 
-        const tags = result.tags.map(tag => `<span class="result-tag">${tag}</span>`).join('');
+        const tags = (result.tags || []).map(tag => `<span class="result-tag">${escapeHtml(tag)}</span>`).join('');
         
         // 处理保存时间格式化
         const formattedDate = result.savedAt ? new Date(result.savedAt).toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'}) : '未知时间';
+        const safeHref = isNonMarkableUrl(result.url) ? '#' : result.url;
+        const safeTitle = escapeHtml(result.title || '');
+        const safeUrl = escapeHtml(result.url || '');
+        const safeExcerpt = escapeHtml(result.excerpt || '');
+        const safeFavicon = escapeHtml(result.favicon || 'icons/default_favicon.png');
+        const safeFormattedDate = escapeHtml(formattedDate);
 
         // 设置HTML内容
         resultItem.innerHTML = `
             <div class="bookmark-checkbox">
                 <input type="checkbox" title="选择此书签">
             </div>
-            <a href="${result.url}" class="result-link" target="_blank">
+            <a href="${escapeHtml(safeHref)}" class="result-link" target="_blank">
                 <div class="result-title">
-                    <img src="${result.favicon}" 
+                    <img src="${safeFavicon}" 
                         class="favicon-img"
                         alt="favicon">
-                    <span class="title-text" title="${result.title}">${result.title}</span>
+                    <span class="title-text" title="${safeTitle}">${safeTitle}</span>
                     ${relevanceStarsHtml}
                 </div>
-                <div class="result-url" title="${result.url}">${result.url}</div>
-                <div class="result-excerpt" title="${result.excerpt}">${result.excerpt}</div>
+                <div class="result-url" title="${safeUrl}">${safeUrl}</div>
+                <div class="result-excerpt" title="${safeExcerpt}">${safeExcerpt}</div>
                 <div class="result-tags">${tags}</div>
                 <!-- 书签底部信息栏 -->
                 <div class="result-metadata">
-                    <div class="result-saved-time" title="收藏于 ${formattedDate}">
+                    <div class="result-saved-time" title="收藏于 ${safeFormattedDate}">
                         <svg viewBox="0 0 24 24" width="14" height="14">
                             <path fill="currentColor" d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
                         </svg>
-                        <span>${formattedDate}</span>
+                        <span>${safeFormattedDate}</span>
                     </div>
                 </div>
             </a>
@@ -1660,26 +1669,28 @@ class QuickSearchManager {
             tagsPreview.innerHTML = '<div class="tags-empty-message">暂无标签，在上方输入框输入标签后按回车添加</div>';
             return;
         }
-        
-        tagsPreview.innerHTML = this.currentTags.map(tag => `
-            <div class="tag-preview-item" data-tag="${tag}">
-                <span>${tag}</span>
-                <div class="remove-tag" title="删除此标签">×</div>
-            </div>
-        `).join('');
-        
-        // 添加删除标签的事件
-        tagsPreview.querySelectorAll('.remove-tag').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const tagItem = e.target.closest('.tag-preview-item');
-                const tag = tagItem.dataset.tag;
-                
-                // 从标签列表中移除
+
+        tagsPreview.innerHTML = '';
+        this.currentTags.forEach(tag => {
+            const tagItem = document.createElement('div');
+            tagItem.className = 'tag-preview-item';
+            tagItem.dataset.tag = tag;
+
+            const tagText = document.createElement('span');
+            tagText.textContent = tag;
+
+            const removeButton = document.createElement('div');
+            removeButton.className = 'remove-tag';
+            removeButton.title = '删除此标签';
+            removeButton.textContent = '×';
+            removeButton.addEventListener('click', () => {
                 this.currentTags = this.currentTags.filter(t => t !== tag);
-                
-                // 更新预览
                 this.updateTagsPreview();
             });
+
+            tagItem.appendChild(tagText);
+            tagItem.appendChild(removeButton);
+            tagsPreview.appendChild(tagItem);
         });
     }
     
@@ -1739,7 +1750,7 @@ class QuickSearchManager {
 
         let tagsElement = resultItem.querySelector('.result-tags');
         // 更新标签内容
-        tagsElement.innerHTML = tags.map(tag => `<span class="result-tag">${tag}</span>`).join('');
+        tagsElement.innerHTML = tags.map(tag => `<span class="result-tag">${escapeHtml(tag)}</span>`).join('');
     }
 
     hideConfirmDialog() {
@@ -1804,8 +1815,8 @@ class QuickSearchManager {
                 <svg class="icon" viewBox="0 0 24 24">
                     <path fill="currentColor" d="${iconPath}" />
                 </svg>
-                <div class="message">${config.message}</div>
-                <div class="description">${config.description}</div>
+                <div class="message">${escapeHtml(config.message)}</div>
+                <div class="description">${escapeHtml(config.description)}</div>
             </div>
         `;
     }

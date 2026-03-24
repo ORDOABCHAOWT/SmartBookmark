@@ -8,7 +8,7 @@ const LOG_LEVELS = {
 
 const ENV = {
     // 通过修改这个值来切换环境
-    current: 'development', // 或 'production'
+    current: 'production', // 或 'development'
     
     development: {
         SERVER_URL: 'http://localhost:8080',
