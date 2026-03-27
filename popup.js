@@ -2335,12 +2335,11 @@ class BookmarkRenderer {
         const deleteBtn = li.querySelector('.delete-btn');
         const editBtn = li.querySelector('.edit-btn');
         
-        // 添加鼠标悬停事件来显示tooltip
-        li.addEventListener('mouseenter', (e) => {
-            showTooltip(li, bookmark);
+        // 书签管理列表中不显示悬浮详情，避免遮挡下面的标签和操作区
+        li.addEventListener('mouseenter', () => {
+            hideTooltip();
         });
-        
-        // 添加鼠标离开事件来隐藏tooltip
+
         li.addEventListener('mouseleave', () => {
             hideTooltip();
         });
@@ -3328,6 +3327,13 @@ let tooltipTimeout;
 function showTooltip(li, bookmark) {
     const tooltip = document.getElementById('global-bookmark-tooltip');
     if (!tooltip) return;
+
+    const container = document.querySelector('.container');
+    const searchContent = document.querySelector('.search-content');
+    if (container?.classList.contains('edit-mode') || searchContent?.classList.contains('edit-mode')) {
+        hideTooltip();
+        return;
+    }
     
     // 清除任何可能存在的超时
     if (tooltipTimeout) {
