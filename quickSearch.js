@@ -305,6 +305,7 @@ class QuickSearchManager {
     async renderSites(renderSites) {
         const { pinnedSites, dropZone } = this.elements;
         pinnedSites.innerHTML = '';
+        pinnedSites.parentElement.classList.remove('has-content');
 
         // 如果设置为不显示，则隐藏整个容器
         if (this.sitesDisplayType === 'none') {
@@ -380,6 +381,7 @@ class QuickSearchManager {
 
             // 如果显示的网站数量大于0，则显示容器
             pinnedSites.parentElement.style.display = pinnedSites.children.length > 0 ? 'flex' : 'none';
+            pinnedSites.parentElement.classList.toggle('has-content', pinnedSites.children.length > 0);
         } catch (error) {
             logger.error('渲染网站失败:', error);
             this.showStatus('渲染网站失败: ' + error.message, 'error');
