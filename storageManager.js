@@ -297,12 +297,12 @@ class LocalStorageMgr {
             return;
         }
         for (const bookmark of bookmarks) {
-            if (!bookmark.embedding) { // 如果书签没有嵌入向量，则检查是否可以保留本地的向量数据
+            if (!bookmark.embedding) {
                 const oldBookmark = await this.getBookmark(bookmark.url);
-                if (oldBookmark) {
+                if (oldBookmark && oldBookmark.embedding) {
                     const oldEmbeddingText = makeEmbeddingText(oldBookmark);
                     const newEmbeddingText = makeEmbeddingText(bookmark);
-                    if (oldBookmark && oldEmbeddingText === newEmbeddingText) {
+                    if (oldEmbeddingText === newEmbeddingText) {
                         bookmark.apiService = oldBookmark.apiService;
                         bookmark.embedModel = oldBookmark.embedModel;
                         bookmark.embedding = oldBookmark.embedding;

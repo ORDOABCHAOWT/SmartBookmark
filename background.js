@@ -1,6 +1,8 @@
 // background.js
-importScripts('consts.js', 'common.js', 'env.js', 'logger.js', 'i18n.js', 'config.js', 'models.js', 'storageManager.js', 'settingsManager.js', 'statsManager.js',
-     'util.js', 'api.js', 'search.js', 'customFilter.js', 'syncSettingManager.js', 'sync.js', 'webdavClient.js', 'webdavSync.js', 'autoSync.js', 'aiCategorizer.js');
+importScripts('lib/pinyin-match.js',
+     'consts.js', 'common.js', 'env.js', 'logger.js', 'i18n.js', 'config.js', 'models.js', 'storageManager.js', 'settingsManager.js', 'statsManager.js',
+     'util.js', 'api.js', 'search.js', 'customFilter.js', 'syncSettingManager.js', 'sync.js', 'webdavClient.js', 'webdavSync.js', 'autoSync.js', 'aiCategorizer.js',
+     'aiMetaFiller.js');
 
 EnvIdentifier = 'background';
 // ------------------------------ 辅助函数分割线 ------------------------------
@@ -89,16 +91,15 @@ chrome.sidePanel
   .catch((error) => logger.error(error));
 
 // 监听插件首次安装时的事件
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+    const { reason } = details;
     if (reason === 'install') {
         logger.info("Smart Bookmark 插件已成功安装！");
-        // 打开介绍页
         chrome.tabs.create({
             url: chrome.runtime.getURL('intro.html')
         });
     } else if (reason === 'update') {
         logger.info("Smart Bookmark 插件已成功更新！");
-        // 打开介绍页
         const introCompleted = await LocalStorageMgr.get('intro-completed');
         if (!introCompleted) {
             chrome.tabs.create({
@@ -106,6 +107,25 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
             });
         }
     }
+
+    // Stage 2 (Semantic Index Upgrade): create heartbeat alarm + first-run kick
+    try {
+        await chrome.alarms.create('aiMetaFiller-heartbeat', {
+            delayInMinutes: 1,
+            periodInMinutes: 30
+        });
+    } catch (err) {
+        logger.error('[aiMetaFiller] alarm create failed:', err);
+    }
+    setTimeout(async () => {
+        try {
+            if (typeof aiMetaFiller !== 'undefined') {
+                await aiMetaFiller.start({ silent: true });
+            }
+        } catch (err) {
+            logger.error('[aiMetaFiller] onInstalled start error:', err);
+        }
+    }, 10000);
 });
 
 // 监听来自插件内部的消息
@@ -172,6 +192,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: false, error: error.message });
             });
         return true;
+    } else if (message.type === MessageType.START_AI_META_FILLER) {
+        // Stage 2: popup asked us to kick off aiMetaFiller in background context.
+        // Filler has its own running-guard so concurrent calls are safe.
+        if (typeof aiMetaFiller !== 'undefined') {
+            aiMetaFiller.start({ silent: true })
+                .then(result => sendResponse({ success: true, result }))
+                .catch(error => {
+                    logger.error('aiMetaFiller.start 失败:', error);
+                    sendResponse({ success: false, error: error.message });
+                });
+            return true;
+        } else {
+            sendResponse({ success: false, error: 'aiMetaFiller not loaded' });
+            return false;
+        }
     } else if (message.type === MessageType.SEARCH_BOOKMARKS) {
         searchManager.search(message.data.query, message.data.options).then(results => {
             sendResponse({ success: true, results: results });
@@ -224,6 +259,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         LocalStorageMgr.updateBookmarksAndEmbedding(message.data.bookmarks, message.data.options)
             .then(() => {
                 sendResponse({ success: true });
+                if (message.data.options?.autoCategorize !== false) {
+                    aiCategorizer.categorizeSavedBookmarks(message.data.bookmarks)
+                        .catch(error => logger.warn('保存后自动 AI 归类失败:', error.message));
+                }
             })
             .catch(error => {
                 logger.error('更新书签和向量失败:', error);
@@ -502,6 +541,31 @@ if (chrome.omnibox) {
 // 监听闹钟触发事件
 chrome.alarms.onAlarm.addListener(async (alarm) => {
     await AutoSyncManager.handleAlarm(alarm);
+    // Stage 2: aiMetaFiller heartbeat — resume on schedule if anything is still missing
+    if (alarm?.name === 'aiMetaFiller-heartbeat') {
+        try {
+            if (typeof aiMetaFiller !== 'undefined') {
+                await aiMetaFiller.start({ silent: true });
+            }
+        } catch (err) {
+            logger.error('[aiMetaFiller] alarm handler error:', err);
+        }
+    }
+});
+
+// Also ensure heartbeat alarm exists on every service-worker startup
+chrome.runtime.onStartup.addListener(async () => {
+    try {
+        const existing = await chrome.alarms.get('aiMetaFiller-heartbeat');
+        if (!existing) {
+            await chrome.alarms.create('aiMetaFiller-heartbeat', {
+                delayInMinutes: 1,
+                periodInMinutes: 30
+            });
+        }
+    } catch (err) {
+        logger.error('[aiMetaFiller] startup alarm check failed:', err);
+    }
 });
 
 // 监听书签变化事件

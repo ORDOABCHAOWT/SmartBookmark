@@ -4,6 +4,7 @@
     "version": "1.2.5",
     "description": "__MSG_extDescription__",
     "default_locale": "zh_CN",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw+/O30VCZWlxSNAthSLvt0a21EVxNsQaDICXVDx9CF5bX0imbC1Nm737sdDH7FDN95nBvJSCo3Lw9sSqpMUVBpIFS45EGLvGk5QhKNP0WiYYPWefhHja1Rp2yLwaCUZkiDj/Pp42EM7DskHcZSlQJXhRhIx4qLBeXdOJTP9HceUCq6b036EObCyPxGAzcv6h39nZ5yKr/CGf77PM+vFz0TQOqAnPmV69NbYf89pKl04OUSaSTsCQ9I5gtmTm0AEELsnBoJqichwWHaEKeaqDYiZXosUC3k9+0VzClzawp8kSR2n2OnUoDnEvhZ0plpnrnC7AHp/K+RMs7KThBZNLbwIDAQAB",
     "icons": {
         "16": "icons/saved_16.png",
         "32": "icons/saved_32.png",

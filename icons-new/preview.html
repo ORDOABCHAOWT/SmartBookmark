@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Icon preview</title>
+<style>
+  :root {
+    --ink: #0e1116;
+    --muted: #5b6371;
+    --line: #e4e8ef;
+    --bg: #f4f6fa;
+    --accent: #1f6feb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #dde3ec; color: var(--ink); font-family: "Inter", -apple-system, "PingFang SC", sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 32px 80px; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 40px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+  .card .label { color: var(--muted); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 24px; font-family: ui-monospace, "JetBrains Mono", Menlo; }
+  .row { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-bottom: 28px; }
+  .row:last-child { margin-bottom: 0; }
+  .slot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .slot .size { font-family: ui-monospace, "JetBrains Mono", Menlo; font-size: 10px; color: var(--muted); letter-spacing: 0.04em; }
+  .slot img { display: block; image-rendering: -webkit-optimize-contrast; }
+  /* mock chrome toolbar */
+  .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px; }
+  .toolbar .url { flex: 1; height: 28px; background: #fff; border: 1px solid #e4e4e7; border-radius: 14px; padding: 0 12px; display: flex; align-items: center; font-size: 12px; color: #6b6b6b; }
+  .toolbar .ext-btn { width: 28px; height: 28px; border-radius: 6px; background: #fff; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; }
+  .toolbar .ext-btn img { width: 18px; height: 18px; }
+  .bg-tests { display: flex; gap: 12px; margin-top: 14px; }
+  .bg-tests .bg { width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .bg-light { background: #ffffff; border: 1px solid var(--line); }
+  .bg-dark { background: #0e1116; }
+  .bg-gray { background: #f4f6fa; }
+  .bg-blue { background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Smart Bookmark · 新图标预览</h1>
+  <p class="sub">极简书签外轮廓 + 右上角蓝色焦点（#1f6feb 对应 Variant B）。saved=实心，unsaved=描边。16px 版本经手动加粗描边避免糊。</p>
+
+  <div class="grid">
+    <!-- SAVED -->
+    <div class="card">
+      <h2>Saved（已保存）</h2>
+      <div class="label">实心填充 · 用于当前页面已收藏</div>
+      <div class="row">
+        <div class="slot"><img src="icon-saved.svg" width="128" height="128" /><span class="size">128 · vector</span></div>
+        <div class="slot"><img src="icon-saved.svg" width="48" height="48" /><span class="size">48 · vector</span></div>
+        <div class="slot"><img src="icon-saved.svg" width="32" height="32" /><span class="size">32 · vector</span></div>
+        <div class="slot"><img src="icon-saved-16.svg" width="16" height="16" /><span class="size">16 · hand-tuned</span></div>
+      </div>
+      <div class="bg-tests">
+        <div class="bg bg-light"><img src="icon-saved.svg" width="24" height="24" /></div>
+        <div class="bg bg-gray"><img src="icon-saved.svg" width="24" height="24" /></div>
+        <div class="bg bg-dark"><img src="icon-saved.svg" width="24" height="24" style="filter:invert(1)" /></div>
+        <div class="bg bg-blue"><img src="icon-saved.svg" width="24" height="24" style="filter:invert(1)" /></div>
+      </div>
+    </div>
+
+    <!-- UNSAVED -->
+    <div class="card">
+      <h2>Unsaved（未保存）</h2>
+      <div class="label">描边镂空 · 用于当前页面未收藏</div>
+      <div class="row">
+        <div class="slot"><img src="icon-unsaved.svg" width="128" height="128" /><span class="size">128 · vector</span></div>
+        <div class="slot"><img src="icon-unsaved.svg" width="48" height="48" /><span class="size">48 · vector</span></div>
+        <div class="slot"><img src="icon-unsaved.svg" width="32" height="32" /><span class="size">32 · vector</span></div>
+        <div class="slot"><img src="icon-unsaved-16.svg" width="16" height="16" /><span class="size">16 · hand-tuned</span></div>
+      </div>
+      <div class="bg-tests">
+        <div class="bg bg-light"><img src="icon-unsaved.svg" width="24" height="24" /></div>
+        <div class="bg bg-gray"><img src="icon-unsaved.svg" width="24" height="24" /></div>
+        <div class="bg bg-dark"><img src="icon-unsaved.svg" width="24" height="24" style="filter:invert(1)" /></div>
+        <div class="bg bg-blue"><img src="icon-unsaved.svg" width="24" height="24" style="filter:invert(1)" /></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:48px; font-size:14px;">浏览器工具栏真实场景模拟</h2>
+  <div class="toolbar" style="margin-top:14px;">
+    <div class="ext-btn"><img src="icon-saved-16.svg" /></div>
+    <div class="url">smartbookmark · saved state</div>
+  </div>
+  <div class="toolbar" style="margin-top:8px;">
+    <div class="ext-btn"><img src="icon-unsaved-16.svg" /></div>
+    <div class="url">smartbookmark · unsaved state</div>
+  </div>
+</div>
+</body>
+</html>

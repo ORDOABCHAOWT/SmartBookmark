@@ -15,13 +15,14 @@ class SettingsManager {
             viewMode: 'list', // 添加默认视图模式
             openInNewTab: true, // 默认在新标签页打开书签
             theme: {
-                mode: 'light',  // 'system' | 'light' | 'dark'
+                mode: 'system',  // 'system' | 'light' | 'dark'
             }
         },
         privacy: {
             autoDetect: true,  // 默认开启自动检测
             enabled: false,     // 默认关闭手动隐私模式
-            customDomains: []   // 新增:用户自定义的隐私域名列表
+            customDomains: [],  // 新增:用户自定义的隐私域名列表
+            aiMetadataIndexing: false  // 显式同意后才允许后台发送书签元数据
         },
         search: {
             maxResults: 50,
@@ -145,4 +146,4 @@ class SettingsManager {
         }
         return result;
     }
-} 
+}

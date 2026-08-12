@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>设置</title>
-    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/tokens.css">
     <link rel="stylesheet" href="css/settings.css">
 </head>
 <body>
@@ -22,31 +22,15 @@
         <nav class="nav-menu">
             <a href="#overview" class="nav-item" data-section="overview">
                 <i class="icon-overview"></i>
-                <span>基本设置</span>
+                <span>核心设置</span>
             </a>
             <a href="#services" class="nav-item" data-section="services">
                 <i class="icon-api"></i>
-                <span>API 服务</span>
+                <span>AI 模型/API</span>
             </a>
-            <a href="#filters" class="nav-item" data-section="filters">
-                <i class="icon-filters"></i>
-                <span>智能标签</span>
-            </a>
-            <a href="#privacy" class="nav-item" data-section="privacy">
-                <i class="icon-privacy"></i>
-                <span>隐私</span>
-            </a>
-            <a href="#import-export" class="nav-item" data-section="import-export">
-                <i class="icon-import-export"></i>
-                <span>导入/导出</span>
-            </a>
-            <a href="#sync" class="nav-item" data-section="sync">
-                <i class="icon-sync"></i>
-                <span>同步</span>
-            </a>
-            <a href="#about" class="nav-item" data-section="about">
-                <i class="icon-about"></i>
-                <span>关于</span>
+            <a href="#shortcuts" class="nav-item" data-section="shortcuts">
+                <i class="icon-shortcuts"></i>
+                <span>快捷键</span>
             </a>
         </nav>
         <div class="sidebar-footer">
@@ -72,7 +56,7 @@
         <div class="settings-container">
             <!-- 概述部分 -->
             <div class="settings-section" id="overview-section">
-                <h2>基本设置</h2>
+                <h2>核心设置</h2>
 
                 <!-- 添加登录状态卡片 -->
                 <div class="login-status-card disabled" id="login-status-card" data-feature="login">
@@ -104,37 +88,6 @@
                     </div>
                     <div id="actionButtons" class="status-actions">
                         <!-- 操作按钮将由 JavaScript 动态填充 -->
-                    </div>
-                </div>
-                
-                <!-- 添加快捷键设置卡片 -->
-                <div class="shortcuts-settings-card">
-                    <div class="card-header">
-                        <h3>快捷键设置</h3>
-                        <div class="shortcut-actions">
-                            <button id="edit-shortcuts-btn" class="icon-btn" title="在 Chrome 扩展管理页面修改快捷键">
-                                <svg viewBox="0 0 24 24" width="20" height="20">
-                                    <path fill="currentColor" d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
-                                </svg>
-                                <span>设置快捷键</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="shortcuts-grid">
-                        <div class="shortcut-item">
-                            <div class="shortcut-info">
-                                <span class="shortcut-name shortcut-save">快速保存书签</span>
-                                <span class="shortcut-key" id="quickSave-shortcut">未设置</span>
-                            </div>
-                            <div class="shortcut-description">快速保存当前页面为书签</div>
-                        </div>
-                        <div class="shortcut-item">
-                            <div class="shortcut-info">
-                                <span class="shortcut-name shortcut-search">快速搜索书签</span>
-                                <span class="shortcut-key" id="quickSearch-shortcut">未设置</span>
-                            </div>
-                            <div class="shortcut-description">打开快速搜索面板</div>
-                        </div>
                     </div>
                 </div>
                 
@@ -259,6 +212,42 @@
                 <!-- 其他基础设置项... -->
             </div>
 
+            <div class="settings-section" id="shortcuts-section">
+                <h2>快捷键</h2>
+                <div class="section-description">
+                    查看当前快捷键绑定，并前往 Chrome 扩展快捷键页面进行修改
+                </div>
+                <div class="shortcuts-settings-card">
+                    <div class="card-header">
+                        <h3>快捷键设置</h3>
+                        <div class="shortcut-actions">
+                            <button id="edit-shortcuts-btn" class="icon-btn" title="在 Chrome 扩展管理页面修改快捷键">
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <path fill="currentColor" d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+                                </svg>
+                                <span>前往 Chrome 快捷键设置</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item">
+                            <div class="shortcut-info">
+                                <span class="shortcut-name shortcut-save">快速保存书签</span>
+                                <span class="shortcut-key" id="quickSave-shortcut">未设置</span>
+                            </div>
+                            <div class="shortcut-description">快速保存当前页面为书签</div>
+                        </div>
+                        <div class="shortcut-item">
+                            <div class="shortcut-info">
+                                <span class="shortcut-name shortcut-search">快速搜索书签</span>
+                                <span class="shortcut-key" id="quickSearch-shortcut">未设置</span>
+                            </div>
+                            <div class="shortcut-description">打开快速搜索面板</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 新增 API 设置部分 -->
             <div class="settings-section" id="services-section">
                 <h2>API 服务</h2>
@@ -279,6 +268,21 @@
                             <li>密钥仅用于与相应 AI 服务进行直接通信</li>
                             <li>我们不会将您的 API 密钥上传到服务器或分享给第三方</li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="setting-item-card">
+                    <div class="form-group">
+                        <label class="switch-label" for="ai-metadata-indexing">
+                            <span class="switch-text">后台 AI 语义索引</span>
+                            <div class="switch-container">
+                                <input type="checkbox" id="ai-metadata-indexing">
+                                <span class="switch-slider"></span>
+                            </div>
+                        </label>
+                        <div class="setting-description">
+                            开启后会将非隐私书签的标题、URL、标签和摘要发送到当前文本模型，用于增强搜索；关闭不影响收藏和普通搜索。
+                        </div>
                     </div>
                 </div>
 

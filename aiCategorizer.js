@@ -30,7 +30,14 @@ class AICategorizer {
 
             if (bookmarks && Object.keys(bookmarks).length > 0) {
                 // 使用插件内部存储的书签
-                bookmarkEntries = Object.entries(bookmarks);
+                bookmarkEntries = Object.entries(bookmarks)
+                    .map(([storageKey, bookmark]) => {
+                        const storagePrefix = LocalStorageMgr.Namespace?.BOOKMARK || 'bookmark.';
+                        const url = bookmark?.url ||
+                            (storageKey.startsWith(storagePrefix) ? storageKey.slice(storagePrefix.length) : storageKey);
+                        return [url, { ...bookmark, url }];
+                    })
+                    .filter(([url, bookmark]) => url && bookmark);
                 logger.info(`从插件存储中获取到 ${bookmarkEntries.length} 个书签`);
             } else {
                 // 回退到 Chrome 原生书签
@@ -79,7 +86,7 @@ class AICategorizer {
 
                 // 并发处理批次内的书签
                 const results = await Promise.allSettled(
-                    batch.map(([url, bookmark]) => this._categorizeBookmark(url, bookmark))
+                    batch.map(([url, bookmark]) => this._categorizeBookmark(url, bookmark, this.abortController.signal))
                 );
 
                 // 收集结果
@@ -137,9 +144,62 @@ class AICategorizer {
     }
 
     /**
+     * 对保存/更新后的单个书签进行 AI 分类，不阻塞保存流程
+     */
+    async categorizeBookmark(bookmark) {
+        if (!bookmark || !bookmark.url) {
+            throw new Error('书签 URL 不能为空');
+        }
+
+        const apiService = await ConfigManager.getChatService();
+        if (!apiService.apiKey || !apiService.chatModel) {
+            throw new Error('未配置 AI 服务的 API Key，请先在设置中配置');
+        }
+
+        return await this._categorizeBookmark(bookmark.url, bookmark);
+    }
+
+    /**
+     * 自动补齐新保存书签的标签。已有人工标签时不覆盖。
+     */
+    async categorizeSavedBookmarks(bookmarks) {
+        const bookmarkList = (Array.isArray(bookmarks) ? bookmarks : [bookmarks])
+            .filter(bookmark => bookmark && bookmark.url)
+            .filter(bookmark => {
+                const tags = Array.isArray(bookmark.tags) ? bookmark.tags.filter(Boolean) : [];
+                return tags.length === 0 || tags.every(tag => ['未分类', 'Uncategorized'].includes(tag));
+            });
+
+        if (bookmarkList.length === 0 || this.isRunning) {
+            return { success: true, categorized: 0, skipped: bookmarkList.length };
+        }
+
+        const updatedBookmarks = [];
+        for (const bookmark of bookmarkList) {
+            const categorized = await this.categorizeBookmark(bookmark);
+            if (categorized) {
+                updatedBookmarks.push(categorized);
+            }
+        }
+
+        if (updatedBookmarks.length > 0) {
+            await LocalStorageMgr.updateBookmarksAndEmbedding(updatedBookmarks, {
+                notifyChange: true,
+                noSync: true
+            });
+        }
+
+        return {
+            success: true,
+            categorized: updatedBookmarks.length,
+            skipped: bookmarkList.length - updatedBookmarks.length
+        };
+    }
+
+    /**
      * 对单个书签进行 AI 分类
      */
-    async _categorizeBookmark(url, bookmark) {
+    async _categorizeBookmark(url, bookmark, signal = null) {
         try {
             const systemPrompt = `你是一个书签分类助手。根据书签的标题和URL，生成 2-4 个精准的中文分类标签。
 标签要求：
@@ -153,23 +213,30 @@ class AICategorizer {
             const userPrompt = `标题: ${bookmark.title || '未知'}
 URL: ${url}
 ${bookmark.tags && bookmark.tags.length > 0 ? `当前标签: ${bookmark.tags.join(',')}` : ''}
+${typeof getBookmarkDerivedKeywords === 'function' ? `本地识别关键词: ${getBookmarkDerivedKeywords({ ...bookmark, url }).join(',')}` : ''}
 ${bookmark.excerpt ? `摘要: ${smartTruncate(bookmark.excerpt, 200)}` : ''}`;
 
             const response = await getChatCompletion(
                 systemPrompt,
                 userPrompt,
-                this.abortController.signal
+                signal
             );
 
-            if (!response) {
+            const deterministicTags = typeof getBookmarkDeterministicTags === 'function'
+                ? getBookmarkDeterministicTags({ ...bookmark, url })
+                : [];
+
+            if (!response && deterministicTags.length === 0) {
                 return null;
             }
 
             // 解析 AI 返回的标签（消毒：去除 HTML 特殊字符，防止 XSS）
-            const newTags = response
+            const newTags = (response || '')
                 .split(/[,，、\n]/)
                 .map(tag => tag.trim().replace(/[<>&'"]/g, ''))
                 .filter(tag => tag.length > 0 && tag.length <= 20 && !/^[\s\d]+$/.test(tag))
+                .concat(deterministicTags)
+                .filter((tag, index, self) => self.indexOf(tag) === index)
                 .slice(0, 5); // 最多 5 个标签
 
             if (newTags.length === 0) {

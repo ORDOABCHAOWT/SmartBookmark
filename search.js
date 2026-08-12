@@ -11,7 +11,7 @@ class SearchManager {
             debounce = true,
             maxResults = null, // 改为null，从设置中获取
             includeUrl = false,
-            includeChromeBookmarks = false,
+            includeChromeBookmarks = true, // 默认包含 Chrome 原生书签 (Stage 0.1)
             recordSearch = true
         } = options;
 
@@ -39,6 +39,44 @@ class SearchManager {
                     if (!query.trim()) {
                         resolve([]);
                         return;
+                    }
+
+                    const localResults = await this.searchBookmarks(null, query, actualMaxResults, includeUrl, includeChromeBookmarks, {
+                        semantic: false
+                    });
+
+                    if (localResults.length > 0) {
+                        logger.debug('本地关键词搜索命中，跳过向量搜索:', {
+                            query,
+                            results: localResults
+                        });
+
+                        if (recordSearch) {
+                            await this.searchHistoryManager.addSearch(query);
+                        }
+
+                        resolve(localResults);
+                        return;
+                    }
+
+                    if (!includeChromeBookmarks) {
+                        const chromeLocalResults = await this.searchBookmarks(null, query, actualMaxResults, includeUrl, true, {
+                            semantic: false
+                        });
+
+                        if (chromeLocalResults.length > 0) {
+                            logger.debug('Chrome 书签关键词搜索命中:', {
+                                query,
+                                results: chromeLocalResults
+                            });
+
+                            if (recordSearch) {
+                                await this.searchHistoryManager.addSearch(query);
+                            }
+
+                            resolve(chromeLocalResults);
+                            return;
+                        }
                     }
 
                     // 获取查询向量
@@ -86,11 +124,12 @@ class SearchManager {
     }
 
     // 搜索书签
-    async searchBookmarks(queryEmbedding, searchInput, maxResults = 50, includeUrl = false, includeChromeBookmarks = false) {
+    async searchBookmarks(queryEmbedding, searchInput, maxResults = 50, includeUrl = false, includeChromeBookmarks = false, searchOptions = {}) {
         const allBookmarks = await getBookmarksForSearch(includeChromeBookmarks);
         
         // 获取API服务配置
-        const apiService = await ConfigManager.getEmbeddingService();
+        const apiService = await ConfigManager.getEmbeddingService() || {};
+        const semanticEnabled = searchOptions.semantic !== false && !!queryEmbedding;
         const SIMILARITY_THRESHOLDS = {
             MAX: apiService.similarityThreshold?.MAX || 0.85,
             HIGH: apiService.similarityThreshold?.HIGH || 0.65, // 高相关性，分数 >= 80
@@ -108,23 +147,108 @@ class SearchManager {
             hideLowSimilarity
         });
 
+        const normalizeSearchText = (value) => (value || '').toString().trim().toLowerCase();
+        const searchInputLower = normalizeSearchText(searchInput);
+        const searchVariants = typeof getSearchQueryVariants === 'function'
+            ? getSearchQueryVariants(searchInput)
+            : [searchInputLower].filter(Boolean);
+        const getDerivedKeywords = (item) => {
+            try {
+                return typeof getBookmarkDerivedKeywords === 'function'
+                    ? getBookmarkDerivedKeywords(item)
+                    : [];
+            } catch (error) {
+                logger.warn('派生搜索关键词失败:', error);
+                return [];
+            }
+        };
+
+        // Stage 0.2: Pinyin fallback — let "tubiao" match "图标".
+        // Only enable when query is pure ASCII alphanumeric (avoid false hits
+        // when user types Chinese, which already has direct substring matches).
+        const isAsciiQuery = /^[a-z0-9\s]+$/i.test(searchInputLower);
+        // PinyinMatch is a UMD bundle. Depending on the environment it may be
+        // attached to globalThis as PinyinMatch, OR exported via module.exports
+        // (which in a service-worker context can land on `module`). Resolve both.
+        let _pmLib = null;
+        if (typeof PinyinMatch !== 'undefined') {
+            _pmLib = PinyinMatch;
+        } else if (typeof globalThis !== 'undefined' && globalThis.PinyinMatch) {
+            _pmLib = globalThis.PinyinMatch;
+        } else if (typeof self !== 'undefined' && self.PinyinMatch) {
+            _pmLib = self.PinyinMatch;
+        }
+        const pinyinAvailable = !!(_pmLib && typeof _pmLib.match === 'function');
+        const pinyinMatch = (value) => {
+            if (!pinyinAvailable || !isAsciiQuery || !value) return false;
+            try {
+                return _pmLib.match(String(value), searchInputLower) !== false;
+            } catch { return false; }
+        };
+
+        const getTextMatchScore = (value) => {
+            const normalizedValue = normalizeSearchText(value);
+            if (!normalizedValue || searchVariants.length === 0) {
+                return 0;
+            }
+            const literalScore = Math.max(...searchVariants.map(variant => {
+                if (normalizedValue === variant) {
+                    return 100;
+                }
+                if (normalizedValue.startsWith(variant)) {
+                    return 96;
+                }
+                if (normalizedValue.includes(variant)) {
+                    return 92;
+                }
+                return 0;
+            }));
+            if (literalScore > 0) return literalScore;
+            // pinyin fallback — slightly lower than literal "includes" to keep ranking sensible
+            if (pinyinMatch(value)) return 85;
+            return 0;
+        };
+
         // 计算单个书签的分数
         const calculateBookmarkScore = (item) => {
             // 计算向量相似度
+            // (Embedding 现在对所有有 embedding 字段的书签生效，不再仅限 EXTENSION 源 —
+            //  Chrome 原生书签经过 aiMetaFiller 提升后也会有 embedding)
             let similarity = 0;
-            if (item.source === BookmarkSource.EXTENSION && item.embedding) {
+            if (semanticEnabled && item.embedding) {
                 similarity = this.cosineSimilarity(queryEmbedding, item.embedding);
             }
             similarity = Math.min(1, Math.max(0, similarity));
-            
+
+            // aiMeta 字段（Stage 2 LLM 自动生成）
+            const aiMeta = item.aiMeta || {};
+            const aiTopics = Array.isArray(aiMeta.topics) ? aiMeta.topics : [];
+            const aiSynonyms = Array.isArray(aiMeta.synonyms) ? aiMeta.synonyms : [];
+            const aiPurpose = typeof aiMeta.purpose === 'string' ? aiMeta.purpose : '';
+
             // 检查关键词匹配
-            const searchInputLower = searchInput.toLowerCase();
             const keywordMatch = {
-                title: item.title?.toLowerCase().includes(searchInputLower) || false,
-                tags: item.tags?.some(tag => tag.toLowerCase().includes(searchInputLower)) || false,
-                excerpt: item.excerpt?.toLowerCase().includes(searchInputLower) || false,
-                url: includeUrl ? item.url?.toLowerCase().includes(searchInputLower) : false
+                title: getTextMatchScore(item.title) > 0,
+                tags: item.tags?.some(tag => getTextMatchScore(tag) > 0) || false,
+                excerpt: getTextMatchScore(item.excerpt) > 0,
+                url: includeUrl ? getTextMatchScore(item.url) > 0 : false,
+                derived: false,
+                aiTopics: aiTopics.some(t => getTextMatchScore(t) > 0),
+                aiSynonyms: aiSynonyms.some(s => getTextMatchScore(s) > 0),
+                aiPurpose: getTextMatchScore(aiPurpose) > 0
             };
+            const derivedKeywords = getDerivedKeywords(item);
+            keywordMatch.derived = derivedKeywords.some(keyword => getTextMatchScore(keyword) > 0);
+            const keywordPriority = Math.max(
+                getTextMatchScore(item.title),
+                ...aiTopics.map(t => Math.max(0, getTextMatchScore(t) - 2)),    // aiTopics 仅次于 title
+                ...(item.tags || []).map(tag => Math.max(0, getTextMatchScore(tag) - 4)),
+                ...aiSynonyms.map(s => Math.max(0, getTextMatchScore(s) - 4)),
+                ...derivedKeywords.map(keyword => Math.max(0, getTextMatchScore(keyword) - 5)),
+                includeUrl ? Math.max(0, getTextMatchScore(item.url) - 8) : 0,
+                Math.max(0, getTextMatchScore(aiPurpose) - 10),
+                Math.max(0, getTextMatchScore(item.excerpt) - 12)
+            );
             
             const hasKeywordMatch = Object.values(keywordMatch).some(match => match);
             
@@ -166,10 +290,14 @@ class SearchManager {
             if (hasKeywordMatch) {
                 // 关键词匹配的书签应保证较高的最低分数，避免被仅靠向量相似度的无关结果排在前面
                 const keywordBonus = (keywordMatch.title ? 8 : 0) +
+                        (keywordMatch.aiTopics ? 7 : 0) +
                         (keywordMatch.tags ? 5 : 0) +
+                        (keywordMatch.derived ? 5 : 0) +
+                        (keywordMatch.aiSynonyms ? 4 : 0) +
                         (keywordMatch.url ? 4 : 0) +
+                        (keywordMatch.aiPurpose ? 3 : 0) +
                         (keywordMatch.excerpt ? 3 : 0);
-                score = Math.max(score, 75) + keywordBonus;
+                score = Math.max(score, 75, keywordPriority) + keywordBonus;
             }
             
             score = Math.min(100, Math.max(0, score));
@@ -178,6 +306,7 @@ class SearchManager {
                 ...item,
                 score,
                 similarity,
+                keywordPriority,
                 keywordMatch
             };
         };
@@ -201,6 +330,9 @@ class SearchManager {
             if (Object.values(item.keywordMatch).some(match => match)) {
                 return true;
             }
+            if (!semanticEnabled) {
+                return false;
+            }
             if (apiService.isCustom) {
                 if (hideLowSimilarity && item.similarity < highSimilarity) {
                     return false;
@@ -209,8 +341,12 @@ class SearchManager {
             }
             return item.score >= 60;
         });
-        // 按分数降序排序, 分数相同按相似度排序
-        filteredResults.sort((a, b) => b.score - a.score || b.similarity - a.similarity);
+        // 文字命中优先，其次综合分和向量相似度。
+        filteredResults.sort((a, b) =>
+            b.keywordPriority - a.keywordPriority ||
+            b.score - a.score ||
+            b.similarity - a.similarity
+        );
         
         return filteredResults.slice(0, maxResults);
     }
@@ -326,4 +462,4 @@ class SearchHistoryManager {
 }
 
 // 导出搜索管理器实例
-const searchManager = new SearchManager(); 
+const searchManager = new SearchManager();

@@ -3,198 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/tokens.css">
     <link rel="stylesheet" href="css/popup.css">
-    <style>
-        html,
-        body,
-        .container {
-            background: #f7f4ee !important;
-            background-image: none !important;
-            opacity: 1 !important;
-            filter: none !important;
-        }
-
-        body::before,
-        body::after,
-        .container::before,
-        .bookmark-item::before,
-        .result-item::before,
-        .bookmarks-group::before {
-            display: none !important;
-        }
-
-        .container,
-        .toolbar,
-        .main-content,
-        .controls-container,
-        .bookmarks-container,
-        .search-content,
-        .recent-searches,
-        .filter-dropdown,
-        .sort-dropdown,
-        .filter-menu,
-        .edit-toolbar,
-        .search-edit-toolbar,
-        .status-message {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            box-shadow: none !important;
-            filter: none !important;
-            opacity: 1 !important;
-        }
-
-        .toolbar {
-            margin: 0 !important;
-            padding: 10px 14px !important;
-            min-height: 74px !important;
-            border: none !important;
-            border-bottom: 1px solid #e6dac9 !important;
-            border-radius: 0 !important;
-            background: #fbf8f2 !important;
-        }
-
-        .toolbar-search {
-            padding: 8px 0 !important;
-            gap: 14px !important;
-            align-items: center !important;
-            background: transparent !important;
-        }
-
-        .toolbar-search .search-input-wrapper {
-            display: flex !important;
-            align-items: center !important;
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-        }
-
-        .toolbar-search #search-input {
-            width: 100% !important;
-            height: 56px !important;
-            padding: 0 66px 0 20px !important;
-            background: #fffdfa !important;
-            color: #2f2923 !important;
-            border: 3px solid #d8c5ae !important;
-            border-radius: 24px !important;
-            box-shadow: none !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            line-height: 56px !important;
-            letter-spacing: 0 !important;
-        }
-
-        .toolbar-search #search-input::placeholder {
-            color: #9b9285 !important;
-            opacity: 1 !important;
-        }
-
-        .toolbar-search #search-input:focus {
-            border-color: #c96a2b !important;
-            box-shadow: 0 0 0 2px rgba(201, 106, 43, 0.12) !important;
-            outline: none !important;
-        }
-
-        .toolbar-search #close-search,
-        .toolbar .icon-button {
-            background: #fffdfa !important;
-            color: #85796b !important;
-            border: 1px solid #e6dac9 !important;
-            box-shadow: none !important;
-        }
-
-        .toolbar-search #close-search {
-            width: 44px !important;
-            height: 44px !important;
-            margin-left: 12px !important;
-            border-radius: 999px !important;
-        }
-
-        .toolbar-search #close-search svg {
-            width: 22px !important;
-            height: 22px !important;
-        }
-
-        .controls-container {
-            background: #fbf8f2 !important;
-            border: 1px solid #eadfce !important;
-            border-radius: 16px !important;
-        }
-
-        .bookmarks-container,
-        .search-content {
-            background: transparent !important;
-            border: none !important;
-        }
-
-        .bookmark-item,
-        .result-item,
-        .bookmarks-group {
-            background: #fffdfa !important;
-            border: 1px solid #eadfce !important;
-            border-radius: 18px !important;
-            box-shadow: none !important;
-        }
-
-        .bookmark-item:hover,
-        .result-item:hover,
-        .bookmarks-group:hover {
-            background: #fffdfa !important;
-            border-color: #d9cbb8 !important;
-            box-shadow: none !important;
-            transform: none !important;
-        }
-
-        .bookmark-title,
-        .result-title {
-            color: #3a322b !important;
-            font-weight: 600 !important;
-            opacity: 1 !important;
-        }
-
-        .bookmark-url,
-        .result-url {
-            color: #c57441 !important;
-            opacity: 1 !important;
-        }
-
-        .bookmark-favicon,
-        .result-favicon,
-        .bookmark-excerpt,
-        .bookmark-description,
-        .result-preview,
-        .result-excerpt,
-        .bookmark-count-wrapper,
-        .api-key-notice,
-        .regenerating-status {
-            background: #f8f2e8 !important;
-            border: 1px solid #eadfce !important;
-            box-shadow: none !important;
-        }
-
-        .bookmark-tag,
-        .result-tag,
-        .tag-item,
-        .folder-tag,
-        .filter-chip {
-            background: #f4efe7 !important;
-            color: #6f68db !important;
-            border: 1px solid #ddd6f6 !important;
-            box-shadow: none !important;
-        }
-
-        .search-stats,
-        .bookmark-count,
-        .result-metadata,
-        .result-saved-time {
-            color: #9b9285 !important;
-            opacity: 1 !important;
-        }
-
-        .relevance-star,
-        .more-actions-btn {
-            opacity: 1 !important;
-        }
-    </style>
 </head>
 
 <body>
@@ -235,13 +45,19 @@
                             <path fill="currentColor" d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.1 14.8,9.5V11C15.4,11 16,11.6 16,12.3V15.8C16,16.4 15.4,17 14.7,17H9.2C8.6,17 8,16.4 8,15.7V12.2C8,11.6 8.6,11 9.2,11V9.5C9.2,8.1 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,9.5V11H13.5V9.5C13.5,8.7 12.8,8.2 12,8.2Z"/>
                         </svg>
                     </div>
-                    <button id="save-page" class="icon-button" title="为此页面添加书签 Cmd/Ctrl+B">
+                    <button id="save-page" class="icon-button core-action-button" title="为此页面添加书签 Cmd/Ctrl+B">
+                        <!-- 未保存态：蓝色描边书签 + 白心圆点 -->
                         <svg class="save-icon" viewBox="0 0 24 24" width="20" height="20">
-                            <path fill="currentColor" d="M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2" />
+                            <path fill="none" stroke="#1f6feb" stroke-width="1.8" stroke-linejoin="round" d="M7 3a1.5 1.5 0 0 0-1.5 1.5V21l6.5-3.5L18.5 21V4.5A1.5 1.5 0 0 0 17 3H7z"/>
+                            <circle cx="18.5" cy="5.5" r="3.6" fill="#ffffff"/>
+                            <circle cx="18.5" cy="5.5" r="3.2" fill="#ffffff" stroke="#1f6feb" stroke-width="0.6"/>
                         </svg>
+                        <!-- 已保存态：蓝色实心书签 + 白圆点 -->
                         <svg class="edit-icon" viewBox="0 0 24 24" width="20" height="20">
-                            <path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" />
+                            <path fill="#1f6feb" d="M7 3a1.5 1.5 0 0 0-1.5 1.5V21l6.5-3.5L18.5 21V4.5A1.5 1.5 0 0 0 17 3H7z"/>
+                            <circle cx="18.5" cy="5.5" r="3.2" fill="#ffffff"/>
                         </svg>
+                        <span class="core-action-label">保存</span>
                     </button>
                     <div class="bookmark-count-wrapper">
                         <span id="bookmark-count" class="bookmark-count" data-count="0">书签</span>
@@ -262,21 +78,31 @@
                 </div>
 
                 <div class="toolbar-actions">
-                    <button id="ai-categorize-btn" class="icon-button" title="AI 一键归类全部书签">
+                    <button id="enter-select-mode" class="icon-button core-action-button" title="多选书签">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <polyline points="8 12 11 15 16 9"/>
+                        </svg>
+                        <span class="core-action-label">选择</span>
+                    </button>
+                    <button id="ai-categorize-btn" class="icon-button core-action-button" title="AI 一键归类全部书签">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                         </svg>
+                        <span class="core-action-label">AI归类</span>
                     </button>
-                    <button id="toggle-search" class="icon-button" title="搜索书签 Cmd/Ctrl+K">
+                    <button id="toggle-search" class="icon-button core-action-button" title="搜索书签 Cmd/Ctrl+K">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path fill="currentColor"
                                 d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" />
                         </svg>
+                        <span class="core-action-label">搜索</span>
                     </button>
-                    <button id="open-settings" class="icon-button" title="打开设置">
+                    <button id="open-settings" class="icon-button core-action-button" title="打开设置">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
                         </svg>
+                        <span class="core-action-label">设置</span>
                     </button>
                 </div>
             </div>
@@ -772,6 +598,8 @@
     <script src="bookmarkEditManager.js"></script>
     <script src="aiCategorizer.js"></script>
     <script src="popup.js"></script>
+    <script src="selectMode.js"></script>
+    <script src="aiMetaFillerBoot.js"></script>
 </body>
 
 </html>

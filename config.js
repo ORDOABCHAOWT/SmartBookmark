@@ -190,6 +190,14 @@ class ConfigManager {
         return this.isBuiltinServiceId(serviceId) || Boolean(customServices[serviceId]);
     }
 
+    static getCanonicalServiceOrigin(baseUrl) {
+        try {
+            return new URL(baseUrl).origin;
+        } catch {
+            return null;
+        }
+    }
+
     static normalizeCustomServiceConfig(serviceId, config, options = {}) {
         const allowMissingApiKey = options.allowMissingApiKey === true;
         if (!config || typeof config !== 'object') {
@@ -939,6 +947,21 @@ class ConfigManager {
                 {};
             const currentCustomServices = this.sanitizeCustomServicesMap(currentCustomServicesData, { allowMissingApiKey: true });
             const importedCustomServices = this.sanitizeCustomServicesMap(data?.[this.STORAGE_KEYS.CUSTOM_SERVICES], { allowMissingApiKey: true });
+            const changedOriginServiceIds = new Set();
+
+            if (!isOverwrite) {
+                for (const [serviceId, importedService] of Object.entries(importedCustomServices)) {
+                    const currentService = currentCustomServices[serviceId];
+                    if (!currentService) {
+                        continue;
+                    }
+                    const currentOrigin = this.getCanonicalServiceOrigin(currentService.baseUrl);
+                    const importedOrigin = this.getCanonicalServiceOrigin(importedService.baseUrl);
+                    if (!currentOrigin || !importedOrigin || currentOrigin !== importedOrigin) {
+                        changedOriginServiceIds.add(serviceId);
+                    }
+                }
+            }
 
             const currentBuiltinApiKeys = !isOverwrite ?
                 await this.getSecretMap(this.SECRET_STORAGE_KEYS.BUILTIN_API_KEYS) :
@@ -989,6 +1012,14 @@ class ConfigManager {
                     ...currentCustomServiceApiKeys,
                     ...collectCustomServiceApiKeys(data?.[this.STORAGE_KEYS.CUSTOM_SERVICES])
                 };
+            for (const serviceId of changedOriginServiceIds) {
+                delete nextCustomServiceApiKeys[serviceId];
+                logger.warn('自定义服务来源已变更，已清除旧 API Key 和激活状态', {
+                    serviceId,
+                    previousOrigin: this.getCanonicalServiceOrigin(currentCustomServices[serviceId]?.baseUrl),
+                    nextOrigin: this.getCanonicalServiceOrigin(importedCustomServices[serviceId]?.baseUrl)
+                });
+            }
             const limitedCustomServiceIds = new Set(Object.keys(sanitizedCustomServices));
             const prunedCustomServiceApiKeys = Object.fromEntries(
                 Object.entries(nextCustomServiceApiKeys).filter(([serviceId]) => limitedCustomServiceIds.has(serviceId))
@@ -1085,6 +1116,29 @@ class ConfigManager {
                     importData[this.STORAGE_KEYS.ACTIVE_SERVICE] = activeServiceId;
                 } else if (isOverwrite && typeof activeServiceId === 'string') {
                     logger.warn('跳过无效的激活服务配置', { activeServiceId });
+                }
+            }
+
+            if (changedOriginServiceIds.size > 0) {
+                const nextServiceTypes = importData[this.STORAGE_KEYS.SERVICE_TYPES] ||
+                    await this.getServiceTypeConfig();
+                const sanitizedServiceTypes = { ...nextServiceTypes };
+                for (const type of ['chat', 'embedding']) {
+                    if (changedOriginServiceIds.has(sanitizedServiceTypes[type])) {
+                        sanitizedServiceTypes[type] = null;
+                    }
+                }
+                importData[this.STORAGE_KEYS.SERVICE_TYPES] = sanitizedServiceTypes;
+
+                const currentActiveServiceData = await this.STORAGE.get(this.STORAGE_KEYS.ACTIVE_SERVICE);
+                const nextActiveServiceId = Object.prototype.hasOwnProperty.call(
+                    importData,
+                    this.STORAGE_KEYS.ACTIVE_SERVICE
+                ) ?
+                    importData[this.STORAGE_KEYS.ACTIVE_SERVICE] :
+                    currentActiveServiceData[this.STORAGE_KEYS.ACTIVE_SERVICE];
+                if (changedOriginServiceIds.has(nextActiveServiceId)) {
+                    importData[this.STORAGE_KEYS.ACTIVE_SERVICE] = null;
                 }
             }
 

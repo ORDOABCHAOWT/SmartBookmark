@@ -24,13 +24,16 @@ function getDateTimestamp(date) {
     return null;
 }
 
+// aiMeta schema version — bump when prompt changes to force regen
+const AI_META_VERSION = 1;
+
 // 统一的书签数据结构
 class UnifiedBookmark {
     constructor(data, source) {
         this.url = data.url;
         this.title = data.title;
         this.source = source;
-        
+
         if (source === BookmarkSource.EXTENSION) {
             this.tags = data.tags;
             this.excerpt = data.excerpt;
@@ -42,6 +45,8 @@ class UnifiedBookmark {
             this.apiService = data.apiService;
             this.embedModel = data.embedModel;
             this.isCached = data.isCached;
+            // Stage 2: LLM-generated semantic metadata (topics / synonyms / purpose)
+            this.aiMeta = data.aiMeta || null;
         } else {
             this.tags = [...data.folderTags || []];
             this.excerpt = '';
@@ -51,6 +56,8 @@ class UnifiedBookmark {
             this.useCount = 0;
             this.lastUsed = data.dateLastUsed ? getDateTimestamp(data.dateLastUsed) : null;
             this.chromeId = data.id;
+            // Chrome native bookmarks don't carry aiMeta until upgraded via aiMetaFiller
+            this.aiMeta = null;
         }
     }
 }
@@ -68,6 +75,7 @@ function unifiedBookmarkToLocalFormat(bookmark) {
         lastUsed: bookmark.lastUsed,
         apiService: bookmark.apiService,
         embedModel: bookmark.embedModel,
+        aiMeta: bookmark.aiMeta || null,
     };
     logger.debug('将书签转换为本地格式', { bookmark: bookmark, localBookmark: localBookmark });
     return localBookmark;

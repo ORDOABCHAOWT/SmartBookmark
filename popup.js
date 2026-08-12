@@ -1414,14 +1414,91 @@ async function updateSearchResults() {
     if (searchInput.value) {
         logger.debug('更新搜索结果');
         const query = searchInput.value.trim();
-        const includeChromeBookmarks = await SettingsManager.get('display.showChromeBookmarks');
+        const localResults = await searchVisibleBookmarks(query);
+        // 搜索始终包含 Chrome 原生书签 — display.showChromeBookmarks 只控制列表视图，
+        // 不应限制搜索覆盖面（用户搜东西时显然希望搜到所有书签）
         const results = await searchBookmarksFromBackground(query, {
             debounce: false,
             includeUrl: true,
-            includeChromeBookmarks: includeChromeBookmarks
+            includeChromeBookmarks: true
         });
-        displaySearchResults(results, query);
+        displaySearchResults(mergeSearchResults(localResults, results), query);
     }
+}
+
+function getPopupSearchTextScore(value, query) {
+    const text = (value || '').toString().trim().toLowerCase();
+    const normalizedQuery = (query || '').toString().trim().toLowerCase();
+    const variants = typeof getSearchQueryVariants === 'function'
+        ? getSearchQueryVariants(query)
+        : [normalizedQuery].filter(Boolean);
+
+    if (!text || variants.length === 0) {
+        return 0;
+    }
+
+    return Math.max(...variants.map(variant => {
+        if (text === variant) {
+            return 100;
+        }
+        if (text.startsWith(variant)) {
+            return 96;
+        }
+        if (text.includes(variant)) {
+            return 92;
+        }
+        return 0;
+    }));
+}
+
+function rankPopupBookmarkMatch(bookmark, query) {
+    const tagScores = (bookmark.tags || []).map(tag => Math.max(0, getPopupSearchTextScore(tag, query) - 4));
+    const derivedKeywords = typeof getBookmarkDerivedKeywords === 'function'
+        ? getBookmarkDerivedKeywords(bookmark)
+        : [];
+    const derivedScores = derivedKeywords.map(keyword => Math.max(0, getPopupSearchTextScore(keyword, query) - 5));
+    return Math.max(
+        getPopupSearchTextScore(bookmark.title, query),
+        getPopupSearchTextScore(bookmark.url, query) - 8,
+        getPopupSearchTextScore(bookmark.excerpt, query) - 12,
+        ...tagScores,
+        ...derivedScores
+    );
+}
+
+async function searchVisibleBookmarks(query) {
+    if (!query || !query.trim()) {
+        return [];
+    }
+
+    let bookmarks = [];
+    if (currentRenderer?.allBookmarks?.length > 0) {
+        bookmarks = currentRenderer.allBookmarks;
+    } else {
+        bookmarks = Object.values(await getDisplayedBookmarks());
+    }
+
+    return bookmarks
+        .map(bookmark => ({
+            ...bookmark,
+            keywordPriority: rankPopupBookmarkMatch(bookmark, query)
+        }))
+        .filter(bookmark => bookmark.keywordPriority > 0)
+        .sort((a, b) =>
+            b.keywordPriority - a.keywordPriority ||
+            (b.savedAt || 0) - (a.savedAt || 0)
+        );
+}
+
+function mergeSearchResults(primaryResults, secondaryResults) {
+    const merged = new Map();
+    [...(primaryResults || []), ...(secondaryResults || [])].forEach(bookmark => {
+        if (!bookmark?.url || merged.has(bookmark.url)) {
+            return;
+        }
+        merged.set(bookmark.url, bookmark);
+    });
+    return Array.from(merged.values());
 }
 
 function displaySearchResults(results, query) {
@@ -3038,14 +3115,15 @@ async function handleSearch() {
                 <div class="loading-text">正在搜索...</div>
             </div>
         `;
-        
-        const includeChromeBookmarks = await SettingsManager.get('display.showChromeBookmarks');
+
+        const localResults = await searchVisibleBookmarks(query);
+        // 搜索始终包含 Chrome 原生书签（同上）
         const results = await searchBookmarksFromBackground(query, {
             debounce: false,
             includeUrl: true,
-            includeChromeBookmarks: includeChromeBookmarks
+            includeChromeBookmarks: true
         });
-        displaySearchResults(results, query);
+        displaySearchResults(mergeSearchResults(localResults, results), query);
     } catch (error) {
         logger.error('搜索失败:', error);
         StatusManager.endOperation('搜索失败: ' + error.message, true);
@@ -3217,6 +3295,7 @@ async function initializeSearch() {
     searchInput.placeholder = `搜索书签 ${quickSearchKey}`;
     
     let isMouseInSearchHistory = false;
+    let searchInputTimer = null;
     
     // 搜索框焦点事件
     searchInput?.addEventListener('focus', async () => {
@@ -3248,6 +3327,19 @@ async function initializeSearch() {
         logger.debug('搜索框内容变化', searchInput.value);
         const query = searchInput.value.trim().toLowerCase();
         renderSearchHistory(query);
+        if (searchInputTimer) {
+            clearTimeout(searchInputTimer);
+        }
+        searchInputTimer = setTimeout(async () => {
+            if (searchInput.value.trim()) {
+                await handleSearch();
+            } else {
+                const searchResults = document.getElementById('search-results');
+                if (searchResults) {
+                    searchResults.innerHTML = '';
+                }
+            }
+        }, 120);
     });
 
     // ESC 键关闭搜索

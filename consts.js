@@ -36,6 +36,9 @@ const MessageType = {
     // AI 一键归类
     AI_CATEGORIZE_ALL: 'AI_CATEGORIZE_ALL',
     AI_CATEGORIZE_PROGRESS: 'AI_CATEGORIZE_PROGRESS',
+
+    // Stage 2: 语义索引自动填充
+    START_AI_META_FILLER: 'START_AI_META_FILLER',
 }
 
 const ExternalMessageType = {

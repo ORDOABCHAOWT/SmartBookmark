@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>PNG check</title>
+<style>
+  body { margin: 0; padding: 40px; background: #dde3ec; font-family: -apple-system, "PingFang SC", sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  p { color: #5b6371; font-size: 13px; margin: 0 0 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: #fff; border: 1px solid #e4e8ef; border-radius: 12px; padding: 24px; }
+  .card h2 { margin: 0 0 16px; font-size: 14px; }
+  .row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .slot { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .slot img { image-rendering: pixelated; }
+  .slot.smooth img { image-rendering: auto; }
+  .slot .lbl { font-family: ui-monospace, Menlo; font-size: 10px; color: #5b6371; }
+  .bg-row { display: flex; gap: 10px; margin-top: 20px; }
+  .bg { width: 56px; height: 56px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .bg-w { background: #fff; border: 1px solid #e4e8ef; }
+  .bg-g { background: #f4f6fa; }
+  .bg-d { background: #0e1116; }
+  .bg-b { background: #1f6feb; }
+  .bg img { width: 16px; height: 16px; }
+</style></head>
+<body><div class="wrap">
+<h1>PNG 实际像素效果</h1>
+<p>每个尺寸用 1:1 像素显示 + 2x 放大显示（pixelated），确认 16px 不糊、描边不消失。</p>
+
+<div class="grid">
+  <div class="card">
+    <h2>saved（实心）</h2>
+    <div class="row">
+      <div class="slot"><img src="saved_16.png" width="16" /><span class="lbl">16 · 1x</span></div>
+      <div class="slot"><img src="saved_16.png" width="48" /><span class="lbl">16 · 3x</span></div>
+      <div class="slot"><img src="saved_32.png" width="32" /><span class="lbl">32 · 1x</span></div>
+      <div class="slot"><img src="saved_48.png" width="48" /><span class="lbl">48 · 1x</span></div>
+      <div class="slot smooth"><img src="saved_128.png" width="128" /><span class="lbl">128 · 1x</span></div>
+    </div>
+    <div class="bg-row">
+      <div class="bg bg-w"><img src="saved_16.png" /></div>
+      <div class="bg bg-g"><img src="saved_16.png" /></div>
+      <div class="bg bg-d"><img src="saved_16.png" /></div>
+      <div class="bg bg-b"><img src="saved_16.png" /></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>unsaved（描边）</h2>
+    <div class="row">
+      <div class="slot"><img src="unsaved_16.png" width="16" /><span class="lbl">16 · 1x</span></div>
+      <div class="slot"><img src="unsaved_16.png" width="48" /><span class="lbl">16 · 3x</span></div>
+      <div class="slot"><img src="unsaved_32.png" width="32" /><span class="lbl">32 · 1x</span></div>
+      <div class="slot"><img src="unsaved_48.png" width="48" /><span class="lbl">48 · 1x</span></div>
+      <div class="slot smooth"><img src="unsaved_128.png" width="128" /><span class="lbl">128 · 1x</span></div>
+    </div>
+    <div class="bg-row">
+      <div class="bg bg-w"><img src="unsaved_16.png" /></div>
+      <div class="bg bg-g"><img src="unsaved_16.png" /></div>
+      <div class="bg bg-d"><img src="unsaved_16.png" /></div>
+      <div class="bg bg-b"><img src="unsaved_16.png" /></div>
+    </div>
+  </div>
+</div>
+</div></body></html>

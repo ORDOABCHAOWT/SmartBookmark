@@ -1,0 +1,21 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Unsaved: outlined bookmark; blue dot uses white halo to mask the stroke crossing through it -->
+  <path d="M32 16
+           a8 8 0 0 0 -8 8
+           v88
+           a4 4 0 0 0 6.4 3.2
+           L64 90.4
+           l33.6 24.8
+           a4 4 0 0 0 6.4 -3.2
+           V24
+           a8 8 0 0 0 -8 -8
+           Z"
+        fill="none"
+        stroke="#0e1116"
+        stroke-width="7"
+        stroke-linejoin="round"/>
+  <!-- White mask cuts a hole in the bookmark stroke -->
+  <circle cx="100" cy="28" r="20" fill="#ffffff"/>
+  <!-- Clean blue dot, same size as saved version -->
+  <circle cx="100" cy="28" r="16" fill="#1f6feb"/>
+</svg>

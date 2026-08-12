@@ -12,10 +12,25 @@ function makeEmbeddingText(bookmarkInfo) {
     let title = bookmarkInfo.title;
     let tags = bookmarkInfo.tags;
     let excerpt = bookmarkInfo.excerpt;
+    const derivedKeywords = typeof getBookmarkDerivedKeywords === 'function'
+        ? getBookmarkDerivedKeywords(bookmarkInfo)
+        : [];
+
+    // Stage 2: include LLM-generated aiMeta in the embedding input.
+    // This is what unlocks cross-language semantic match (e.g. 图标 ↔ icon library).
+    const aiMeta = bookmarkInfo.aiMeta || {};
+    const aiTopics = Array.isArray(aiMeta.topics) ? aiMeta.topics : [];
+    const aiSynonyms = Array.isArray(aiMeta.synonyms) ? aiMeta.synonyms : [];
+    const aiPurpose = typeof aiMeta.purpose === 'string' ? aiMeta.purpose : '';
 
     let text = "";
     text += title ? `title: ${title};` : '';
     text += tags && tags.length > 0 ? `tags: ${tags.join(',')};` : '';
+    text += aiTopics.length > 0 ? `topics: ${aiTopics.join(',')};` : '';
+    text += aiSynonyms.length > 0 ? `synonyms: ${aiSynonyms.join(',')};` : '';
+    text += bookmarkInfo.url ? `url: ${bookmarkInfo.url};` : '';
+    text += derivedKeywords.length > 0 ? `keywords: ${derivedKeywords.join(',')};` : '';
+    text += aiPurpose ? `purpose: ${aiPurpose};` : '';
     text += excerpt ? `excerpt: ${smartTruncate(excerpt, 200)};` : '';
     
     // 优化的文本清理
@@ -437,7 +452,13 @@ async function generateTags(pageContent, tab) {
         tags = getFallbackTags(tab.title, pageContent?.metadata);
     }
 
-    tags = cleanTags(tags);
+    const deterministicTags = typeof getBookmarkDeterministicTags === 'function'
+        ? getBookmarkDeterministicTags(tab)
+        : [];
+
+    tags = cleanTags([...tags, ...deterministicTags])
+        .filter((tag, index, self) => self.indexOf(tag) === index)
+        .slice(0, 5);
     return tags.length > 0 ? tags : [i18n.M('ui_tag_unclassified')];
 }
 

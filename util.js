@@ -126,6 +126,28 @@ function calculateWeightedScore(useCount, lastUsed) {
     return Math.round(weightedScore);
 }
 
+function getStoredBookmarkUrl(storageKey, bookmark) {
+    if (bookmark?.url) {
+        return bookmark.url;
+    }
+
+    const storagePrefix = LocalStorageMgr.Namespace?.BOOKMARK || 'bookmark.';
+    if (typeof storageKey === 'string' && storageKey.startsWith(storagePrefix)) {
+        return storageKey.slice(storagePrefix.length);
+    }
+
+    return typeof storageKey === 'string' ? storageKey : '';
+}
+
+function normalizeStoredBookmark(storageKey, bookmark) {
+    if (!bookmark) {
+        return bookmark;
+    }
+
+    const url = getStoredBookmarkUrl(storageKey, bookmark);
+    return url ? { ...bookmark, url } : bookmark;
+}
+
 async function getAllBookmarks(includeChromeBookmarks = false, withEmbedding = false) {
     try {
         // 获取扩展书签
@@ -142,8 +164,9 @@ async function getAllBookmarks(includeChromeBookmarks = false, withEmbedding = f
         const extensionBookmarksMap = {};
         
         // 遍历并检查扩展书签
-        Object.entries(extensionBookmarks).forEach(([_, data]) => {
-            const bookmark = new UnifiedBookmark(data, BookmarkSource.EXTENSION);
+        Object.entries(extensionBookmarks).forEach(([storageKey, data]) => {
+            const normalizedData = normalizeStoredBookmark(storageKey, data);
+            const bookmark = new UnifiedBookmark(normalizedData, BookmarkSource.EXTENSION);
             if (isNonMarkableUrl(bookmark.url)) {
                 // 添加到待删除列表
                 bookmarksToDelete.push(bookmark);
@@ -381,6 +404,438 @@ function cleanTags(tags) {
         // 移除序号、星号和多余空格
         return tag.replace(/^\d+\.\s*\*+|\*+/g, '').trim();
     });
+}
+
+function getBookmarkHostname(bookmark) {
+    try {
+        return new URL(bookmark?.url || '').hostname.replace(/^www\./i, '').toLowerCase();
+    } catch (error) {
+        return '';
+    }
+}
+
+const SEARCH_INTENT_PROFILES = [
+    {
+        id: 'icon-assets',
+        hostnames: [
+            'mingcute.com',
+            'iconify.design',
+            'svgrepo.com',
+            'lucide.dev',
+            'heroicons.com',
+            'fontawesome.com',
+            'icons8.com',
+            'flaticon.com',
+            'thenounproject.com',
+            'simpleicons.org',
+            'phosphoricons.com',
+            'remixicon.com',
+            'tabler.io',
+            'iconfont.cn',
+            'feathericons.com',
+            'material.io'
+        ],
+        hostPatterns: [
+            /(^|[.-])(icon|icons|icones|svg)[a-z0-9-]*(\.|$)/i
+        ],
+        signals: [
+            /\bicons?\b/i,
+            /\bsvg\b/i,
+            /\bfavicon\b/i,
+            /\biconfont\b/i,
+            /\bmingcute\b/i,
+            /\blucide\b/i,
+            /\bheroicons?\b/i,
+            /\bfontawesome\b/i,
+            /\biconify\b/i,
+            /\btabler\b/i,
+            /\bremixicon\b/i,
+            /图标/,
+            /矢量/
+        ],
+        querySignals: ['图标', 'icon', 'icons', 'svg', '矢量', '素材'],
+        queryAliases: [
+            'icon',
+            'icons',
+            'icon website',
+            'icon library',
+            'icon set',
+            'svg',
+            '图标',
+            '图标库',
+            '图标网站',
+            '矢量图标'
+        ],
+        keywords: [
+            'icon',
+            'icons',
+            'icon website',
+            'icon library',
+            'icon set',
+            'svg',
+            '图标',
+            '图标库',
+            '图标网站',
+            '矢量图标',
+            '设计',
+            '设计资源',
+            '素材'
+        ],
+        tags: ['图标', '设计资源', 'SVG']
+    },
+    {
+        id: 'ai-tools',
+        hostnames: [
+            'openai.com',
+            'chatgpt.com',
+            'anthropic.com',
+            'claude.ai',
+            'huggingface.co',
+            'gemini.google.com',
+            'aistudio.google.com',
+            'perplexity.ai',
+            'replicate.com',
+            'poe.com',
+            'midjourney.com'
+        ],
+        hostPatterns: [
+            /(^|[.-])(ai|llm|gpt|chatgpt|claude|gemini)([.-]|$)/i
+        ],
+        signals: [
+            /\bai\b/i,
+            /\bllm\b/i,
+            /\bgpt\b/i,
+            /\bchatgpt\b/i,
+            /\bopenai\b/i,
+            /\bclaude\b/i,
+            /\bgemini\b/i,
+            /\bhugging ?face\b/i,
+            /人工智能/,
+            /大模型/
+        ],
+        querySignals: ['ai', '人工智能', '大模型', '模型', 'llm', 'chatgpt', 'openai', 'gemini'],
+        queryAliases: [
+            'ai',
+            'ai tool',
+            'artificial intelligence',
+            'llm',
+            'chatgpt',
+            'openai',
+            'claude',
+            'gemini',
+            '人工智能',
+            '大模型',
+            'AI工具'
+        ],
+        keywords: [
+            'ai',
+            'ai tool',
+            'artificial intelligence',
+            'llm',
+            'chatgpt',
+            'openai',
+            'claude',
+            'gemini',
+            '人工智能',
+            '大模型',
+            'AI工具'
+        ],
+        tags: ['AI工具', '人工智能']
+    },
+    {
+        id: 'design-resources',
+        hostnames: [
+            'figma.com',
+            'dribbble.com',
+            'behance.net',
+            'canva.com',
+            'framer.com',
+            'webflow.com',
+            'uiverse.io',
+            'mobbin.com'
+        ],
+        hostPatterns: [
+            /(^|[.-])(design|ui|ux|figma|prototype)[a-z0-9-]*(\.|$)/i
+        ],
+        signals: [
+            /\bdesign\b/i,
+            /\bui\b/i,
+            /\bux\b/i,
+            /\bfigma\b/i,
+            /\bprototype\b/i,
+            /设计/,
+            /原型/,
+            /界面/
+        ],
+        querySignals: ['设计', 'design', 'ui', 'ux', 'figma', '原型', '界面'],
+        queryAliases: [
+            'design',
+            'design resource',
+            'ui',
+            'ux',
+            'figma',
+            'prototype',
+            '设计',
+            '设计资源',
+            '产品设计',
+            '视觉设计',
+            '界面设计'
+        ],
+        keywords: [
+            'design',
+            'design resource',
+            'ui',
+            'ux',
+            'figma',
+            'prototype',
+            '设计',
+            '设计资源',
+            '产品设计',
+            '视觉设计',
+            '界面设计'
+        ],
+        tags: ['设计资源', '产品设计', 'UI']
+    },
+    {
+        id: 'developer-resources',
+        hostnames: [
+            'github.com',
+            'gitlab.com',
+            'stackoverflow.com',
+            'npmjs.com',
+            'nodejs.org',
+            'react.dev',
+            'nextjs.org',
+            'vercel.com',
+            'developer.mozilla.org'
+        ],
+        hostPatterns: [
+            /(^|[.-])(dev|developer|code|github|npm|react|nextjs)[a-z0-9-]*(\.|$)/i
+        ],
+        signals: [
+            /\bcode\b/i,
+            /\bdev(eloper)?\b/i,
+            /\bprogramming\b/i,
+            /\bjavascript\b/i,
+            /\btypescript\b/i,
+            /\bpython\b/i,
+            /\bgithub\b/i,
+            /代码/,
+            /开发/,
+            /编程/
+        ],
+        querySignals: ['代码', '开发', '编程', 'github', 'javascript', 'typescript', 'python', '前端'],
+        queryAliases: [
+            'code',
+            'dev',
+            'developer',
+            'programming',
+            'github',
+            'javascript',
+            'typescript',
+            'python',
+            '代码',
+            '开发',
+            '编程',
+            '前端开发'
+        ],
+        keywords: [
+            'code',
+            'dev',
+            'developer',
+            'programming',
+            'github',
+            'javascript',
+            'typescript',
+            'python',
+            '代码',
+            '开发',
+            '编程',
+            '前端开发'
+        ],
+        tags: ['开发', '编程']
+    },
+    {
+        id: 'documentation',
+        hostnames: [
+            'developer.mozilla.org',
+            'docs.github.com',
+            'docs.python.org',
+            'react.dev',
+            'nextjs.org',
+            'developer.chrome.com',
+            'developer.apple.com',
+            'learn.microsoft.com'
+        ],
+        hostPatterns: [
+            /(^|[.-])(docs?|documentation|developer|learn|reference)[a-z0-9-]*(\.|$)/i
+        ],
+        signals: [
+            /\bdocs?\b/i,
+            /\bdocumentation\b/i,
+            /\breference\b/i,
+            /\bhandbook\b/i,
+            /\bguide\b/i,
+            /文档/,
+            /手册/,
+            /指南/,
+            /参考/
+        ],
+        querySignals: ['文档', '手册', '指南', '参考', 'docs', 'documentation', 'reference', 'guide'],
+        queryAliases: [
+            'docs',
+            'documentation',
+            'developer docs',
+            'reference',
+            'guide',
+            'handbook',
+            '文档',
+            '技术文档',
+            '开发文档',
+            '参考资料',
+            '指南'
+        ],
+        keywords: [
+            'docs',
+            'documentation',
+            'developer docs',
+            'reference',
+            'guide',
+            'handbook',
+            '文档',
+            '技术文档',
+            '开发文档',
+            '参考资料',
+            '指南'
+        ],
+        tags: ['技术文档', '开发文档']
+    },
+    {
+        id: 'video',
+        hostnames: [
+            'youtube.com',
+            'youtu.be',
+            'bilibili.com',
+            'vimeo.com',
+            'ted.com'
+        ],
+        hostPatterns: [
+            /(^|[.-])(video|tube|bilibili|youtube)[a-z0-9-]*(\.|$)/i
+        ],
+        signals: [
+            /\bvideo\b/i,
+            /\byoutube\b/i,
+            /\bbilibili\b/i,
+            /视频/,
+            /哔哩/,
+            /教程/
+        ],
+        querySignals: ['视频', 'youtube', 'bilibili', '哔哩', 'b站', '教程'],
+        queryAliases: [
+            'video',
+            'youtube',
+            'bilibili',
+            '视频',
+            '哔哩哔哩',
+            'b站',
+            '教程'
+        ],
+        keywords: [
+            'video',
+            'youtube',
+            'bilibili',
+            '视频',
+            '哔哩哔哩',
+            'b站',
+            '教程'
+        ],
+        tags: ['视频', '教程']
+    }
+];
+
+function hostMatchesSearchIntent(host, profile) {
+    if (!host) {
+        return false;
+    }
+    // Defensive normalization — profile hostnames may have varied casing /
+    // be authored with or without www; we strip both sides symmetrically.
+    const normHost = host.replace(/^www\./i, '').toLowerCase();
+
+    const hostnameMatches = (profile.hostnames || []).some(rawDomain => {
+        const domain = String(rawDomain || '').replace(/^www\./i, '').toLowerCase();
+        if (!domain) return false;
+        // Exact match OR strict subdomain match (avoid "evilmingcute.com" matching "mingcute.com")
+        return normHost === domain || normHost.endsWith(`.${domain}`);
+    });
+    if (hostnameMatches) {
+        return true;
+    }
+
+    return (profile.hostPatterns || []).some(pattern => pattern.test(normHost));
+}
+
+function valueMatchesSearchIntentSignals(value, signals) {
+    const normalizedValue = (value || '').toString().trim().toLowerCase();
+    if (!normalizedValue) {
+        return false;
+    }
+
+    return (signals || []).some(signal => {
+        if (signal instanceof RegExp) {
+            return signal.test(normalizedValue);
+        }
+        return normalizedValue.includes(signal.toString().toLowerCase());
+    });
+}
+
+function getBookmarkIntentProfiles(bookmark) {
+    const host = getBookmarkHostname(bookmark);
+    const text = [
+        bookmark?.title,
+        bookmark?.url,
+        bookmark?.excerpt,
+        ...(bookmark?.tags || [])
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    return SEARCH_INTENT_PROFILES.filter(profile =>
+        hostMatchesSearchIntent(host, profile) ||
+        valueMatchesSearchIntentSignals(text, profile.signals)
+    );
+}
+
+function getBookmarkDerivedKeywords(bookmark) {
+    const keywords = new Set();
+
+    getBookmarkIntentProfiles(bookmark).forEach(profile => {
+        (profile.keywords || []).forEach(keyword => keywords.add(keyword));
+    });
+
+    return Array.from(keywords);
+}
+
+function getBookmarkDeterministicTags(bookmark) {
+    const tags = new Set();
+
+    getBookmarkIntentProfiles(bookmark).forEach(profile => {
+        (profile.tags || []).forEach(tag => tags.add(tag));
+    });
+
+    return Array.from(tags);
+}
+
+function getSearchQueryVariants(query) {
+    const normalizedQuery = (query || '').toString().trim().toLowerCase();
+    const variants = new Set([normalizedQuery].filter(Boolean));
+
+    SEARCH_INTENT_PROFILES.forEach(profile => {
+        if (valueMatchesSearchIntentSignals(normalizedQuery, profile.querySignals)) {
+            (profile.queryAliases || profile.keywords || []).forEach(keyword => variants.add(keyword.toLowerCase()));
+        }
+    });
+
+    return Array.from(variants);
 }
 
 // 获取隐私模式设置

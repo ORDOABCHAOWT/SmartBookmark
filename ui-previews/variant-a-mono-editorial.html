@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Variant A · Mono Editorial</title>
+<style>
+  :root {
+    --ink: #0a0a0a;
+    --ink-2: #262626;
+    --muted: #6b6b6b;
+    --muted-2: #9a9a9a;
+    --line: #ebebeb;
+    --line-strong: #d4d4d4;
+    --bg: #fafaf9;
+    --panel: #ffffff;
+    --hover: #f1f0ee;
+    --selected: #0a0a0a;
+    --selected-text: #ffffff;
+    --danger: #b91c1c;
+    --radius-sm: 6px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+    --serif: "Iowan Old Style", "Georgia", "Source Serif Pro", "Times New Roman", serif;
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang SC", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #ece9e3; color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .stage { display: grid; grid-template-columns: repeat(2, 420px); gap: 32px; padding: 40px; justify-content: center; align-content: start; }
+  .scene { display: flex; flex-direction: column; gap: 10px; }
+  .scene-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #635f57; padding-left: 4px; }
+
+  /* === Popup canvas === */
+  .popup {
+    width: 420px;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 6px;
+    font-family: var(--serif);
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .brand .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); display: inline-block; transform: translateY(-2px); }
+  .brand small { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; transform: translateY(-2px); }
+  .toolbar .spacer { flex: 1; }
+  .icon-btn {
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .icon-btn:hover { background: var(--hover); }
+  .icon-btn.active { background: var(--ink); color: #fff; }
+  .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.6; }
+
+  /* Sub-toolbar (count + actions) */
+  .subbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .count {
+    display: inline-flex; align-items: baseline; gap: 4px;
+    font-family: var(--serif);
+  }
+  .count .num {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .count .unit {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    font-family: var(--sans);
+    text-transform: uppercase;
+  }
+  .subbar .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--ink-2);
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .pill:hover { border-color: var(--ink); }
+  .pill svg { width: 12px; height: 12px; stroke-width: 1.8; }
+
+  /* Bookmark list */
+  .list { padding: 4px 6px 10px; }
+  .item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px minmax(0,1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .item:hover { background: var(--hover); }
+  .item.selected { background: var(--selected); color: var(--selected-text); }
+  .item.selected .title { color: var(--selected-text); }
+  .item.selected .url { color: rgba(255,255,255,0.6); }
+
+  .favicon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ddd6c8;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .favicon.f1 { background: #c44d2d; }
+  .favicon.f2 { background: #2f8f4e; }
+  .favicon.f3 { background: #1a1a1a; }
+  .favicon.f4 { background: #d4a017; }
+  .favicon.f5 { background: #1c3a8a; }
+  .favicon.f6 { background: #b13a5a; }
+  .favicon.f7 { background: #d63b2a; }
+  .favicon.f8 { background: #5b3a8a; color: #f5e8d4; }
+
+  .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .title { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.005em; }
+  .url { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+  .item .actions { display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+  .item:hover .actions { opacity: 1; }
+  .item.selected .actions { opacity: 1; }
+  .item .actions .icon-btn { width: 24px; height: 24px; color: var(--muted); }
+  .item.selected .actions .icon-btn { color: rgba(255,255,255,0.8); }
+  .item.selected .actions .icon-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+  /* Edit-mode: checkbox sits where favicon was, favicon shrinks to corner of checkbox.
+     User's bug: checkbox covers favicon. Fix: in edit mode, the leading slot becomes a checkbox,
+     and the favicon is a small badge attached to the title row instead. */
+  .item.edit { grid-template-columns: 22px 22px minmax(0,1fr) auto; }
+  .item.edit .favicon { width: 18px; height: 18px; border-radius: 5px; font-size: 9px; }
+  .checkbox {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fff;
+    transition: all .12s;
+  }
+  .item.edit:hover .checkbox { border-color: var(--ink); }
+  .checkbox.checked { background: var(--ink); border-color: var(--ink); }
+  .checkbox.checked::after {
+    content: ""; width: 9px; height: 5px;
+    border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff;
+    transform: rotate(-45deg) translate(1px, -1px);
+  }
+
+  /* Edit toolbar */
+  .edit-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 12px;
+  }
+  .edit-bar .label { font-family: var(--serif); font-size: 14px; }
+  .edit-bar .label .num { font-family: var(--serif); font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .edit-bar .spacer { flex: 1; }
+  .edit-bar .ghost {
+    padding: 6px 10px; border: 1px solid rgba(255,255,255,0.18);
+    border-radius: var(--radius-sm); color: #fff; background: transparent;
+    cursor: pointer; font-size: 11.5px;
+  }
+  .edit-bar .ghost:hover { background: rgba(255,255,255,0.08); }
+  .edit-bar .danger { background: #fff; color: #1a1a1a; border: 1px solid #fff; }
+  .edit-bar .danger:hover { background: #f0ebe2; }
+
+  /* Search scene */
+  .search-input {
+    margin: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+  .search-input.focused { border-color: var(--ink); }
+  .search-input svg { width: 15px; height: 15px; color: var(--muted); stroke-width: 1.6; }
+  .search-input input {
+    flex: 1; border: none; outline: none; background: transparent;
+    font-family: var(--sans); font-size: 14px; color: var(--ink);
+  }
+  .search-input kbd {
+    font-family: var(--mono); font-size: 10px;
+    padding: 2px 6px; border: 1px solid var(--line-strong);
+    border-radius: 4px; color: var(--muted); background: var(--bg);
+  }
+  .sec {
+    padding: 6px 14px;
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* Settings card */
+  .settings-card {
+    padding: 18px 18px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .settings-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    letter-spacing: -0.015em;
+    margin: 0;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .settings-title small { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); font-weight: normal; }
+  .sg { display: flex; flex-direction: column; gap: 4px; }
+  .sg-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .sg-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .sg-row:last-child { border-bottom: none; }
+  .sg-row .name { font-size: 13px; color: var(--ink); }
+  .sg-row .name small { display: block; color: var(--muted); font-size: 11px; font-weight: normal; margin-top: 2px; }
+  .toggle {
+    width: 36px; height: 20px; border-radius: 999px;
+    background: var(--line-strong);
+    position: relative; cursor: pointer; transition: background .15s;
+  }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    transition: transform .15s;
+  }
+  .toggle.on { background: var(--ink); }
+  .toggle.on::after { transform: translateX(16px); }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    padding: 2px;
+    background: var(--bg);
+  }
+  .seg button {
+    border: none; background: transparent; padding: 4px 10px;
+    font-size: 11.5px; color: var(--muted); cursor: pointer;
+    border-radius: 5px; font-family: var(--sans);
+  }
+  .seg button.on { background: var(--ink); color: #fff; }
+
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- SCENE 1: Default list -->
+  <div class="scene">
+    <span class="scene-label">01 · Default list</span>
+    <div class="popup">
+      <div class="toolbar">
+        <div class="brand">Smart Bookmark <small>BETA</small></div>
+        <div class="spacer"></div>
+        <button class="icon-btn" title="Save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        <button class="icon-btn" title="AI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></button>
+        <button class="icon-btn" title="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+        <button class="icon-btn" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.65 1.65 0 0 0-1.8-.3 1.65 1.65 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.65 1.65 0 0 0-1-1.5 1.65 1.65 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.65 1.65 0 0 0 .3-1.8 1.65 1.65 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.65 1.65 0 0 0 1.5-1 1.65 1.65 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.65 1.65 0 0 0 1.8.3h0a1.65 1.65 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.65 1.65 0 0 0 1 1.5h0a1.65 1.65 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.65 1.65 0 0 0-.3 1.8v0a1.65 1.65 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.65 1.65 0 0 0-1.5 1z"/></svg></button>
+      </div>
+
+      <div class="subbar">
+        <span class="count"><span class="num">479</span><span class="unit">书签</span></span>
+        <div class="spacer"></div>
+        <button class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M6 12h12M10 18h4"/></svg> 全部</button>
+        <button class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> 编辑</button>
+      </div>
+
+      <div class="list">
+        <div class="item">
+          <div class="favicon f1">P</div>
+          <div class="meta"><div class="title">Podtrac — The Standard for Podcast Analytics</div><div class="url">podtrac.com</div></div>
+          <div class="actions">
+            <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          </div>
+        </div>
+        <div class="item selected">
+          <div class="favicon f2">G</div>
+          <div class="meta"><div class="title">Grammarly</div><div class="url">grammarly.com</div></div>
+          <div class="actions">
+            <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          </div>
+        </div>
+        <div class="item">
+          <div class="favicon f3">可</div>
+          <div class="meta"><div class="title">可灵 AI — 新一代 AI 创意生产平台</div><div class="url">kling.kuaishou.com</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+        <div class="item">
+          <div class="favicon f4">P</div>
+          <div class="meta"><div class="title">Microsoft Power BI</div><div class="url">powerbi.microsoft.com</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+        <div class="item">
+          <div class="favicon f5">R</div>
+          <div class="meta"><div class="title">Recraft Community</div><div class="url">app.recraft.ai/community</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+        <div class="item">
+          <div class="favicon f6">R</div>
+          <div class="meta"><div class="title">AI Magic Tools — Runway</div><div class="url">runwayml.com</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+        <div class="item">
+          <div class="favicon f7">S</div>
+          <div class="meta"><div class="title">Suno</div><div class="url">suno.com</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+        <div class="item">
+          <div class="favicon f8">如</div>
+          <div class="meta"><div class="title">如何基于自己优势做账号定位</div><div class="url">xiaohongshu.com</div></div>
+          <div class="actions"><button class="icon-btn"></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 2: Edit mode (fixes bug #1) -->
+  <div class="scene">
+    <span class="scene-label">02 · Edit mode · checkbox 与 favicon 各占其位</span>
+    <div class="popup">
+      <div class="edit-bar">
+        <span class="label">已选 <span class="num">3</span> / 479</span>
+        <div class="spacer"></div>
+        <button class="ghost">取消</button>
+        <button class="ghost">导出</button>
+        <button class="danger">删除</button>
+      </div>
+      <div class="list">
+        <div class="item edit">
+          <div class="checkbox checked"></div>
+          <div class="favicon f1">P</div>
+          <div class="meta"><div class="title">Podtrac — The Standard for Podcast Analytics</div><div class="url">podtrac.com</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox checked"></div>
+          <div class="favicon f2">G</div>
+          <div class="meta"><div class="title">Grammarly</div><div class="url">grammarly.com</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox"></div>
+          <div class="favicon f3">可</div>
+          <div class="meta"><div class="title">可灵 AI — 新一代 AI 创意生产平台</div><div class="url">kling.kuaishou.com</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox checked"></div>
+          <div class="favicon f4">P</div>
+          <div class="meta"><div class="title">Microsoft Power BI</div><div class="url">powerbi.microsoft.com</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox"></div>
+          <div class="favicon f5">R</div>
+          <div class="meta"><div class="title">Recraft Community</div><div class="url">app.recraft.ai/community</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox"></div>
+          <div class="favicon f6">R</div>
+          <div class="meta"><div class="title">AI Magic Tools — Runway</div><div class="url">runwayml.com</div></div>
+        </div>
+        <div class="item edit">
+          <div class="checkbox"></div>
+          <div class="favicon f7">S</div>
+          <div class="meta"><div class="title">Suno</div><div class="url">suno.com</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 3: Search -->
+  <div class="scene">
+    <span class="scene-label">03 · Search</span>
+    <div class="popup">
+      <div class="toolbar">
+        <div class="brand">Smart Bookmark <small>SEARCH</small></div>
+        <div class="spacer"></div>
+        <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="search-input focused">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input value="ai" autofocus />
+        <kbd>↵</kbd>
+      </div>
+      <div class="sec">12 个结果</div>
+      <div class="list">
+        <div class="item">
+          <div class="favicon f3">A</div>
+          <div class="meta"><div class="title">AI Model & API Providers — Artificial Analysis</div><div class="url">artificialanalysis.ai</div></div>
+        </div>
+        <div class="item selected">
+          <div class="favicon f6">R</div>
+          <div class="meta"><div class="title">AI Magic Tools — Runway</div><div class="url">runwayml.com</div></div>
+        </div>
+        <div class="item">
+          <div class="favicon f3">可</div>
+          <div class="meta"><div class="title">可灵 AI — 新一代 AI 创意生产平台</div><div class="url">kling.kuaishou.com</div></div>
+        </div>
+        <div class="item">
+          <div class="favicon f8">如</div>
+          <div class="meta"><div class="title">如何基于自己优势做账号定位 (AI workflow)</div><div class="url">xiaohongshu.com</div></div>
+        </div>
+      </div>
+      <div class="sec">Recent</div>
+      <div style="padding: 4px 14px 14px; display: flex; flex-wrap: wrap; gap: 6px;">
+        <span class="pill">prompt engineering</span>
+        <span class="pill">vector db</span>
+        <span class="pill">runway</span>
+        <span class="pill">notion ai</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENE 4: Settings card -->
+  <div class="scene">
+    <span class="scene-label">04 · Settings card</span>
+    <div class="popup">
+      <div class="settings-card">
+        <h2 class="settings-title">设置 <small>PREFERENCES</small></h2>
+
+        <div class="sg">
+          <span class="sg-label">外观</span>
+          <div class="sg-row">
+            <div class="name">主题<small>跟随系统 / 浅色 / 深色</small></div>
+            <div class="seg">
+              <button>跟随</button>
+              <button class="on">浅</button>
+              <button>深</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sg">
+          <span class="sg-label">行为</span>
+          <div class="sg-row">
+            <div class="name">显示 Chrome 原生书签<small>合并到搜索结果中</small></div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="sg-row">
+            <div class="name">自动聚焦搜索框</div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="sg-row">
+            <div class="name">在新标签页打开</div>
+            <div class="toggle"></div>
+          </div>
+        </div>
+
+        <div class="sg">
+          <span class="sg-label">隐私</span>
+          <div class="sg-row">
+            <div class="name">自动隐私模式<small>检测到无痕窗口自动启用</small></div>
+            <div class="toggle on"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

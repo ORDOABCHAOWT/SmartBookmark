@@ -1,0 +1,16 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Saved: solid filled bookmark + clean blue dot on top-right -->
+  <path d="M32 16
+           a8 8 0 0 0 -8 8
+           v88
+           a4 4 0 0 0 6.4 3.2
+           L64 90.4
+           l33.6 24.8
+           a4 4 0 0 0 6.4 -3.2
+           V24
+           a8 8 0 0 0 -8 -8
+           Z"
+        fill="#1f6feb"/>
+  <!-- White dot punched into the blue bookmark -->
+  <circle cx="100" cy="28" r="16" fill="#ffffff"/>
+</svg>

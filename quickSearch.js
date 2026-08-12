@@ -38,6 +38,7 @@ class QuickSearchManager {
         this.lastQuery = '';
         this.lastQueryResult = [];
         this.isSearching = false;
+        this.pendingSearchQuery = null;
         this.selectedIndex = -1;
         this.resultItems = [];
         this.draggedElement = null;
@@ -928,8 +929,13 @@ class QuickSearchManager {
     }
 
     async performSearch(query) {
-        if (this.isSearching) return;
+        if (this.isSearching) {
+            this.pendingSearchQuery = query;
+            this.lastQuery = query;
+            return;
+        }
         
+        this.pendingSearchQuery = null;
         this.lastQuery = query;
         if (!query) {
             this.clearResults();
@@ -947,15 +953,12 @@ class QuickSearchManager {
 
             const startTime = performance.now();
             
-            // 获取用户设置
-            const settings = await SettingsManager.getAll();
-            const includeChromeBookmarks = settings.display?.showChromeBookmarks || false;
-
-            // 执行搜索
+            // 搜索始终包含 Chrome 原生书签 — display.showChromeBookmarks 只控制
+            // 主面板列表视图是否合并显示原生书签，不应限制搜索能不能命中。
             const results = await searchBookmarksFromBackground(query, {
                 debounce: false,
                 includeUrl: true,
-                includeChromeBookmarks: includeChromeBookmarks
+                includeChromeBookmarks: true
             });
 
             const endTime = performance.now();
@@ -985,6 +988,11 @@ class QuickSearchManager {
             });
         } finally {
             this.isSearching = false;
+            const pendingQuery = this.pendingSearchQuery;
+            this.pendingSearchQuery = null;
+            if (pendingQuery !== null && pendingQuery !== query) {
+                await this.performSearch(pendingQuery);
+            }
         }
     }
     
@@ -1813,8 +1821,8 @@ class QuickSearchManager {
         }
 
         return `
-            <div class="empty-search-results">
-                <svg class="icon" viewBox="0 0 24 24">
+            <div class="empty-search-results empty-search-results--${escapeHtml(config.type)}">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="${iconPath}" />
                 </svg>
                 <div class="message">${escapeHtml(config.message)}</div>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Smart Bookmark · 风格预览</title>
+<style>
+  :root {
+    --ink: #0a0a0a;
+    --muted: #6b6b6b;
+    --line: #e6e6e6;
+    --bg: #fafaf9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang SC", sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1480px; margin: 0 auto; padding: 56px 40px 120px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  header h1 { font-family: "Iowan Old Style", "Georgia", "Source Serif Pro", serif; font-weight: 500; font-size: 28px; letter-spacing: -0.01em; margin: 0; }
+  header .meta { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .intro { margin: 32px 0 56px; max-width: 720px; color: #2a2a2a; line-height: 1.7; font-size: 14px; }
+  .intro b { font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+  .card h2 { margin: 0; font-family: "Iowan Old Style", "Georgia", serif; font-weight: 500; font-size: 22px; letter-spacing: -0.01em; }
+  .card .label { font-size: 11px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
+  .swatches { display: flex; gap: 6px; margin-top: 4px; }
+  .swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.06); }
+  .summary { font-size: 13px; line-height: 1.7; color: #333; }
+  .summary ul { padding-left: 18px; margin: 6px 0 0; }
+  .summary li { margin: 4px 0; }
+  .preview-frame { width: 100%; height: 720px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 12px 14px; text-align: center; text-decoration: none; font-size: 13px; border-radius: 8px; border: 1px solid var(--line); color: var(--ink); background: #fff; transition: all .12s; }
+  .btn:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primary:hover { background: #2a2a2a; }
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Smart Bookmark — 风格预览</h1>
+    <span class="meta">3 directions · pick one</span>
+  </header>
+
+  <p class="intro">
+    以下是3个差异化方向，共同基调是<b>极简精致</b>（Linear / Vercel 感），但在色彩、版式与质感上各走一条路。每版都用同一组场景演示（默认列表、编辑模式、搜索入口、设置卡片），便于直接对比。
+    选定方向后，再把它套到所有5个界面（popup / settings / quickSearch / quickSave / intro）上，并修复复选框遮挡 favicon、数字字号失控、设置页风格脱节这三个具体问题。
+  </p>
+
+  <div class="grid">
+    <!-- Variant A -->
+    <div class="card">
+      <span class="label">Variant A</span>
+      <h2>Mono Editorial</h2>
+      <div class="swatches">
+        <span class="swatch" style="background:#0a0a0a"></span>
+        <span class="swatch" style="background:#262626"></span>
+        <span class="swatch" style="background:#6b6b6b"></span>
+        <span class="swatch" style="background:#e6e6e6"></span>
+        <span class="swatch" style="background:#fafaf9"></span>
+      </div>
+      <div class="summary">
+        近乎无色彩，靠<b>字体层级</b>与<b>负空间</b>说话。
+        <ul>
+          <li>主字体 Inter / SF Pro，标题用衬线点缀</li>
+          <li>选中态用反色块（黑底白字），不用蓝</li>
+          <li>分隔线 1px hairline；圆角 8px</li>
+          <li>气质：编辑部、纸面、克制</li>
+        </ul>
+      </div>
+      <iframe class="preview-frame" src="variant-a-mono-editorial.html"></iframe>
+      <div class="btn-row">
+        <a class="btn primary" href="variant-a-mono-editorial.html" target="_blank">打开 Variant A</a>
+      </div>
+    </div>
+
+    <!-- Variant B -->
+    <div class="card">
+      <span class="label">Variant B</span>
+      <h2>Nordic Precision</h2>
+      <div class="swatches">
+        <span class="swatch" style="background:#0e1116"></span>
+        <span class="swatch" style="background:#3c4250"></span>
+        <span class="swatch" style="background:#8a93a6"></span>
+        <span class="swatch" style="background:#dfe3ea"></span>
+        <span class="swatch" style="background:#f4f6fa"></span>
+      </div>
+      <div class="summary">
+        冷灰冰蓝、几何感强。最贴近<b>Vercel / Geist</b>。
+        <ul>
+          <li>无衬线纯净字体，标题字距收紧 -0.02em</li>
+          <li>焦点色 #1f6feb 极少量出现</li>
+          <li>选中态用淡蓝填充 + 1px 蓝色描边</li>
+          <li>气质：工程师、精密仪器、冷静</li>
+        </ul>
+      </div>
+      <iframe class="preview-frame" src="variant-b-nordic-precision.html"></iframe>
+      <div class="btn-row">
+        <a class="btn primary" href="variant-b-nordic-precision.html" target="_blank">打开 Variant B</a>
+      </div>
+    </div>
+
+    <!-- Variant C -->
+    <div class="card">
+      <span class="label">Variant C</span>
+      <h2>Soft Mono + Accent</h2>
+      <div class="swatches">
+        <span class="swatch" style="background:#171513"></span>
+        <span class="swatch" style="background:#4b4540"></span>
+        <span class="swatch" style="background:#a39e98"></span>
+        <span class="swatch" style="background:#ebe7e1"></span>
+        <span class="swatch" style="background:#f7f5f1"></span>
+        <span class="swatch" style="background:#3ee07a"></span>
+      </div>
+      <div class="summary">
+        中性灰底 + <b>单一焦点色</b>（电光绿）。
+        <ul>
+          <li>暖中性背景比 A/B 稍暖，但不复古</li>
+          <li>焦点色只出现在选中、计数高亮、关键按钮</li>
+          <li>圆角 10px，比 A 略软</li>
+          <li>气质：极简但有温度，对比强烈</li>
+        </ul>
+      </div>
+      <iframe class="preview-frame" src="variant-c-soft-mono-accent.html"></iframe>
+      <div class="btn-row">
+        <a class="btn primary" href="variant-c-soft-mono-accent.html" target="_blank">打开 Variant C</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    每版预览演示了4个场景：默认列表 · 编辑模式（演示 checkbox 不再遮挡 favicon 的新交互）· 搜索状态 · 设置入口。<br/>
+    选定后告诉我："就 A / B / C"，我会把它套到所有5个界面，并清掉旧的 !important 覆盖层。
+  </footer>
+</div>
+</body>
+</html>

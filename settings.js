@@ -519,12 +519,42 @@ class ServicesSettingsTab extends BaseSettingsTab {
 
     async initialize() {
         logger.debug('开始初始化服务设置', Date.now()/1000);
+        await this.initializeAiMetadataIndexing();
         await this.initializeAPIServices();
         this.initializeServiceConfigDialog();
         this.initializeCustomServiceDialog();
         this.initializeCopyPasteButtons();
         await this.updateStatsUI();
         logger.debug('初始化服务设置完成', Date.now()/1000);
+    }
+
+    async initializeAiMetadataIndexing() {
+        const toggle = document.getElementById('ai-metadata-indexing');
+        if (!toggle) {
+            return;
+        }
+
+        toggle.checked = (await SettingsManager.get('privacy.aiMetadataIndexing')) === true;
+        toggle.addEventListener('change', async () => {
+            const enabled = toggle.checked;
+            toggle.disabled = true;
+            try {
+                await updateSettingsWithSync({
+                    privacy: {
+                        aiMetadataIndexing: enabled
+                    }
+                });
+                if (enabled) {
+                    sendMessageSafely({ type: MessageType.START_AI_META_FILLER });
+                }
+                showToast(enabled ? '后台 AI 语义索引已开启' : '后台 AI 语义索引已关闭');
+            } catch (error) {
+                toggle.checked = !enabled;
+                showToast(`保存设置失败：${error.message}`, true);
+            } finally {
+                toggle.disabled = false;
+            }
+        });
     }
 
     // 初始化复制粘贴按钮
@@ -3129,6 +3159,13 @@ class AboutSettingsTab extends BaseSettingsTab {
     }
 }
 
+class ShortcutsSettingsTab extends BaseSettingsTab {
+    constructor() {
+        super();
+        this.section = document.getElementById('shortcuts-section');
+    }
+}
+
 class SettingsUI {
     constructor() {
         this.navItems = document.querySelectorAll('.nav-item');
@@ -3137,11 +3174,7 @@ class SettingsUI {
         this.tabs = {
             overview: new OverviewSettingsTab(),
             services: new ServicesSettingsTab(),
-            filters: new FilterSettingsTab(),
-            'import-export': new ImportExportSettingsTab(),
-            privacy: new PrivacySettingsTab(),
-            sync: new SyncSettingsTab(),
-            about: new AboutSettingsTab()
+            shortcuts: new ShortcutsSettingsTab()
         };
     }
 
@@ -3200,6 +3233,10 @@ class SettingsUI {
     }
 
     switchSection(sectionId) {
+        if (!this.tabs[sectionId]) {
+            sectionId = 'overview';
+        }
+
         this.navItems.forEach(item => {
             item.classList.toggle('active', 
                 item.getAttribute('data-section') === sectionId);
