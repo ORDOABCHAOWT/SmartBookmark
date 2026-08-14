@@ -149,9 +149,18 @@ class SearchManager {
 
         const normalizeSearchText = (value) => (value || '').toString().trim().toLowerCase();
         const searchInputLower = normalizeSearchText(searchInput);
-        const searchVariants = typeof getSearchQueryVariants === 'function'
-            ? getSearchQueryVariants(searchInput)
-            : [searchInputLower].filter(Boolean);
+        const getDeterministicTextScore = (value, includeAliases = true) => {
+            if (typeof getSearchTextMatchScore === 'function') {
+                return getSearchTextMatchScore(value, searchInput, { includeAliases });
+            }
+
+            const normalizedValue = normalizeSearchText(value);
+            if (!normalizedValue || !searchInputLower) return 0;
+            if (normalizedValue === searchInputLower) return 120;
+            if (normalizedValue.startsWith(searchInputLower)) return 116;
+            if (normalizedValue.includes(searchInputLower)) return 112;
+            return 0;
+        };
         const getDerivedKeywords = (item) => {
             try {
                 return typeof getBookmarkDerivedKeywords === 'function'
@@ -187,27 +196,13 @@ class SearchManager {
         };
 
         const getTextMatchScore = (value) => {
-            const normalizedValue = normalizeSearchText(value);
-            if (!normalizedValue || searchVariants.length === 0) {
-                return 0;
-            }
-            const literalScore = Math.max(...searchVariants.map(variant => {
-                if (normalizedValue === variant) {
-                    return 100;
-                }
-                if (normalizedValue.startsWith(variant)) {
-                    return 96;
-                }
-                if (normalizedValue.includes(variant)) {
-                    return 92;
-                }
-                return 0;
-            }));
-            if (literalScore > 0) return literalScore;
+            const deterministicScore = getDeterministicTextScore(value, true);
+            if (deterministicScore > 0) return deterministicScore;
             // pinyin fallback — slightly lower than literal "includes" to keep ranking sensible
-            if (pinyinMatch(value)) return 85;
+            if (pinyinMatch(value)) return 78;
             return 0;
         };
+        const getLiteralTextMatchScore = (value) => getDeterministicTextScore(value, false);
 
         // 计算单个书签的分数
         const calculateBookmarkScore = (item) => {
@@ -248,6 +243,15 @@ class SearchManager {
                 includeUrl ? Math.max(0, getTextMatchScore(item.url) - 8) : 0,
                 Math.max(0, getTextMatchScore(aiPurpose) - 10),
                 Math.max(0, getTextMatchScore(item.excerpt) - 12)
+            );
+            const literalPriority = Math.max(
+                getLiteralTextMatchScore(item.title),
+                ...(item.tags || []).map(tag => Math.max(0, getLiteralTextMatchScore(tag) - 4)),
+                ...aiTopics.map(topic => Math.max(0, getLiteralTextMatchScore(topic) - 2)),
+                ...aiSynonyms.map(synonym => Math.max(0, getLiteralTextMatchScore(synonym) - 4)),
+                includeUrl ? Math.max(0, getLiteralTextMatchScore(item.url) - 8) : 0,
+                Math.max(0, getLiteralTextMatchScore(aiPurpose) - 10),
+                Math.max(0, getLiteralTextMatchScore(item.excerpt) - 12)
             );
             
             const hasKeywordMatch = Object.values(keywordMatch).some(match => match);
@@ -306,6 +310,7 @@ class SearchManager {
                 ...item,
                 score,
                 similarity,
+                literalPriority,
                 keywordPriority,
                 keywordMatch
             };
@@ -341,8 +346,9 @@ class SearchManager {
             }
             return item.score >= 60;
         });
-        // 文字命中优先，其次综合分和向量相似度。
+        // 用户原始输入的直接命中永远优先于意图扩展词，然后再比较综合分。
         filteredResults.sort((a, b) =>
+            b.literalPriority - a.literalPriority ||
             b.keywordPriority - a.keywordPriority ||
             b.score - a.score ||
             b.similarity - a.similarity

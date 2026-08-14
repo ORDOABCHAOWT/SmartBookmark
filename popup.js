@@ -1432,10 +1432,16 @@ async function updateSearchResults() {
     }
 }
 
-function getPopupSearchTextScore(value, query) {
+function getPopupSearchTextScore(value, query, options = {}) {
+    if (typeof getSearchTextMatchScore === 'function') {
+        return getSearchTextMatchScore(value, query, options);
+    }
+
     const text = (value || '').toString().trim().toLowerCase();
     const normalizedQuery = (query || '').toString().trim().toLowerCase();
-    const variants = typeof getSearchQueryVariants === 'function'
+    const variants = options.includeAliases === false
+        ? [normalizedQuery].filter(Boolean)
+        : typeof getSearchQueryVariants === 'function'
         ? getSearchQueryVariants(query)
         : [normalizedQuery].filter(Boolean);
 
@@ -1444,29 +1450,34 @@ function getPopupSearchTextScore(value, query) {
     }
 
     return Math.max(...variants.map(variant => {
+        const isLiteral = variant === normalizedQuery;
         if (text === variant) {
-            return 100;
+            return isLiteral ? 120 : 90;
         }
         if (text.startsWith(variant)) {
-            return 96;
+            return isLiteral ? 116 : 86;
         }
         if (text.includes(variant)) {
-            return 92;
+            return isLiteral ? 112 : 82;
         }
         return 0;
     }));
 }
 
-function rankPopupBookmarkMatch(bookmark, query) {
-    const tagScores = (bookmark.tags || []).map(tag => Math.max(0, getPopupSearchTextScore(tag, query) - 4));
+function rankPopupBookmarkMatch(bookmark, query, options = {}) {
+    const scoreOptions = { includeAliases: options.includeAliases !== false };
+    const scoreText = (value) => getPopupSearchTextScore(value, query, scoreOptions);
+    const tagScores = (bookmark.tags || []).map(tag => Math.max(0, scoreText(tag) - 4));
     const derivedKeywords = typeof getBookmarkDerivedKeywords === 'function'
         ? getBookmarkDerivedKeywords(bookmark)
         : [];
-    const derivedScores = derivedKeywords.map(keyword => Math.max(0, getPopupSearchTextScore(keyword, query) - 5));
+    const derivedScores = options.includeDerived === false
+        ? []
+        : derivedKeywords.map(keyword => Math.max(0, scoreText(keyword) - 5));
     return Math.max(
-        getPopupSearchTextScore(bookmark.title, query),
-        getPopupSearchTextScore(bookmark.url, query) - 8,
-        getPopupSearchTextScore(bookmark.excerpt, query) - 12,
+        scoreText(bookmark.title),
+        scoreText(bookmark.url) - 8,
+        scoreText(bookmark.excerpt) - 12,
         ...tagScores,
         ...derivedScores
     );
@@ -1487,10 +1498,15 @@ async function searchVisibleBookmarks(query) {
     return bookmarks
         .map(bookmark => ({
             ...bookmark,
+            literalPriority: rankPopupBookmarkMatch(bookmark, query, {
+                includeAliases: false,
+                includeDerived: false
+            }),
             keywordPriority: rankPopupBookmarkMatch(bookmark, query)
         }))
         .filter(bookmark => bookmark.keywordPriority > 0)
         .sort((a, b) =>
+            b.literalPriority - a.literalPriority ||
             b.keywordPriority - a.keywordPriority ||
             (b.savedAt || 0) - (a.savedAt || 0)
         );

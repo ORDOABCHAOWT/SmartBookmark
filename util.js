@@ -513,7 +513,7 @@ const SEARCH_INTENT_PROFILES = [
             /人工智能/,
             /大模型/
         ],
-        querySignals: ['ai', '人工智能', '大模型', '模型', 'llm', 'chatgpt', 'openai', 'gemini'],
+        querySignals: ['ai', '人工智能', '大模型', '模型', 'llm'],
         queryAliases: [
             'ai',
             'ai tool',
@@ -532,10 +532,6 @@ const SEARCH_INTENT_PROFILES = [
             'ai tool',
             'artificial intelligence',
             'llm',
-            'chatgpt',
-            'openai',
-            'claude',
-            'gemini',
             '人工智能',
             '大模型',
             'AI工具'
@@ -567,7 +563,7 @@ const SEARCH_INTENT_PROFILES = [
             /原型/,
             /界面/
         ],
-        querySignals: ['设计', 'design', 'ui', 'ux', 'figma', '原型', '界面'],
+        querySignals: ['设计', 'design', 'ui', 'ux', '原型', '界面'],
         queryAliases: [
             'design',
             'design resource',
@@ -586,7 +582,6 @@ const SEARCH_INTENT_PROFILES = [
             'design resource',
             'ui',
             'ux',
-            'figma',
             'prototype',
             '设计',
             '设计资源',
@@ -728,7 +723,7 @@ const SEARCH_INTENT_PROFILES = [
             /哔哩/,
             /教程/
         ],
-        querySignals: ['视频', 'youtube', 'bilibili', '哔哩', 'b站', '教程'],
+        querySignals: ['视频', 'video', '教程'],
         queryAliases: [
             'video',
             'youtube',
@@ -740,11 +735,7 @@ const SEARCH_INTENT_PROFILES = [
         ],
         keywords: [
             'video',
-            'youtube',
-            'bilibili',
             '视频',
-            '哔哩哔哩',
-            'b站',
             '教程'
         ],
         tags: ['视频', '教程']
@@ -786,6 +777,31 @@ function valueMatchesSearchIntentSignals(value, signals) {
     });
 }
 
+function queryMatchesSearchIntentSignals(query, signals) {
+    const normalizedQuery = normalizeSearchValue(query);
+    if (!normalizedQuery) {
+        return false;
+    }
+
+    return (signals || []).some(signal => {
+        if (signal instanceof RegExp) {
+            return signal.test(normalizedQuery);
+        }
+
+        const normalizedSignal = normalizeSearchValue(signal);
+        if (!normalizedSignal) return false;
+
+        // ASCII 短词（AI/UI/UX/dev 等）必须是完整单词，不能让 openai、
+        // build、device 因包含相同字母而误触发整个分类扩展。
+        if (/^[a-z0-9 ]+$/.test(normalizedSignal)) {
+            const escapedSignal = normalizedSignal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`(^|[^a-z0-9])${escapedSignal}($|[^a-z0-9])`, 'i').test(normalizedQuery);
+        }
+
+        return normalizedQuery.includes(normalizedSignal);
+    });
+}
+
 function getBookmarkIntentProfiles(bookmark) {
     const host = getBookmarkHostname(bookmark);
     const text = [
@@ -824,16 +840,66 @@ function getBookmarkDeterministicTags(bookmark) {
 }
 
 function getSearchQueryVariants(query) {
-    const normalizedQuery = (query || '').toString().trim().toLowerCase();
+    const normalizedQuery = normalizeSearchValue(query);
     const variants = new Set([normalizedQuery].filter(Boolean));
 
     SEARCH_INTENT_PROFILES.forEach(profile => {
-        if (valueMatchesSearchIntentSignals(normalizedQuery, profile.querySignals)) {
+        if (queryMatchesSearchIntentSignals(normalizedQuery, profile.querySignals)) {
             (profile.queryAliases || profile.keywords || []).forEach(keyword => variants.add(keyword.toLowerCase()));
         }
     });
 
     return Array.from(variants);
+}
+
+function normalizeSearchValue(value) {
+    const text = (value || '').toString();
+    const normalized = typeof text.normalize === 'function' ? text.normalize('NFKC') : text;
+    return normalized.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * 统一的确定性文本匹配评分。
+ *
+ * 用户原始输入永远高于意图扩展词，防止具体软件名被同类站点淹没。
+ * 多单词软件名允许各单词以任意顺序出现在标题或 URL 中，例如
+ * "Visual Studio Code" 可以命中 code.visualstudio.com。
+ */
+function getSearchTextMatchScore(value, query, options = {}) {
+    const text = normalizeSearchValue(value);
+    const normalizedQuery = normalizeSearchValue(query);
+    if (!text || !normalizedQuery) {
+        return 0;
+    }
+
+    const includeAliases = options.includeAliases !== false;
+    const terms = includeAliases ? getSearchQueryVariants(query) : [normalizedQuery];
+    let bestScore = 0;
+
+    terms.forEach(term => {
+        const normalizedTerm = normalizeSearchValue(term);
+        if (!normalizedTerm) return;
+
+        const isLiteral = normalizedTerm === normalizedQuery;
+        const exactScore = isLiteral ? 120 : 90;
+        const prefixScore = isLiteral ? 116 : 86;
+        const containsScore = isLiteral ? 112 : 82;
+
+        if (text === normalizedTerm) {
+            bestScore = Math.max(bestScore, exactScore);
+        } else if (text.startsWith(normalizedTerm)) {
+            bestScore = Math.max(bestScore, prefixScore);
+        } else if (text.includes(normalizedTerm)) {
+            bestScore = Math.max(bestScore, containsScore);
+        } else if (isLiteral) {
+            const tokens = normalizedTerm.split(' ').filter(token => token.length > 1);
+            if (tokens.length > 1 && tokens.every(token => text.includes(token))) {
+                bestScore = Math.max(bestScore, 108);
+            }
+        }
+    });
+
+    return bestScore;
 }
 
 // 获取隐私模式设置

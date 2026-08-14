@@ -25,14 +25,19 @@ function loadUtilSearchHelpers() {
 globalThis.utilSearchHelpers = {
     getBookmarkDerivedKeywords,
     getBookmarkDeterministicTags,
-    getSearchQueryVariants
+    getSearchQueryVariants,
+    getSearchTextMatchScore
 };`, sandbox);
     return sandbox.utilSearchHelpers;
 }
 
 function loadSearchManager(bookmarks, queryEmbedding = [1, 0], getEmbeddingImpl = null) {
     const source = fs.readFileSync(path.join(root, 'search.js'), 'utf8');
-    const { getBookmarkDerivedKeywords, getSearchQueryVariants } = loadUtilSearchHelpers();
+    const {
+        getBookmarkDerivedKeywords,
+        getSearchQueryVariants,
+        getSearchTextMatchScore
+    } = loadUtilSearchHelpers();
     const sandbox = {
         console,
         setTimeout,
@@ -65,6 +70,7 @@ function loadSearchManager(bookmarks, queryEmbedding = [1, 0], getEmbeddingImpl 
             typeof bookmarks === 'function' ? bookmarks(includeChromeBookmarks) : bookmarks,
         getBookmarkDerivedKeywords,
         getSearchQueryVariants,
+        getSearchTextMatchScore,
         getEmbedding: getEmbeddingImpl || (async () => queryEmbedding),
         LocalStorageMgr: {
             async get() { return []; },
@@ -193,16 +199,20 @@ globalThis.defaultSettings = SettingsManager.DEFAULT_SETTINGS;`, sandbox);
     return sandbox.defaultSettings;
 }
 
-function loadPopupSearchHelpers() {
+function loadPopupSearchHelpers(bookmarks = null) {
     const source = fs.readFileSync(path.join(root, 'popup.js'), 'utf8');
-    const { getBookmarkDerivedKeywords, getSearchQueryVariants } = loadUtilSearchHelpers();
+    const {
+        getBookmarkDerivedKeywords,
+        getSearchQueryVariants,
+        getSearchTextMatchScore
+    } = loadUtilSearchHelpers();
     const helperSource = source.slice(
         source.indexOf('function getPopupSearchTextScore'),
         source.indexOf('function displaySearchResults')
     );
     const sandbox = {
         currentRenderer: {
-            allBookmarks: [{
+            allBookmarks: bookmarks || [{
                 url: 'https://aihot.example',
                 title: 'AIHOT',
                 tags: [],
@@ -218,6 +228,7 @@ function loadPopupSearchHelpers() {
         },
         getBookmarkDerivedKeywords,
         getSearchQueryVariants,
+        getSearchTextMatchScore,
         getDisplayedBookmarks: async () => ({})
     };
 
@@ -395,6 +406,157 @@ async function testBroadDeveloperIntentStillFindsGitHub() {
 
     assert.strictEqual(results.length, 1);
     assert.strictEqual(results[0].url, 'https://github.com/example/project');
+}
+
+async function testSpecificSoftwareNamesStayPreciseAcrossIntentProfiles() {
+    const cases = [{
+        query: 'OpenAI',
+        targetUrl: 'https://openai.com/research',
+        distractorUrl: index => `https://claude.ai/chat/${index}`
+    }, {
+        query: 'Figma',
+        targetUrl: 'https://figma.com/files',
+        distractorUrl: index => `https://canva.com/design/${index}`
+    }, {
+        query: 'YouTube',
+        targetUrl: 'https://youtube.com/feed/subscriptions',
+        distractorUrl: index => `https://bilibili.com/video/${index}`
+    }];
+
+    for (const testCase of cases) {
+        const bookmarks = {};
+        for (let index = 0; index < 60; index += 1) {
+            const url = testCase.distractorUrl(index);
+            bookmarks[url] = {
+                url,
+                title: `Related tool ${index}`,
+                tags: [],
+                excerpt: '',
+                embedding: null,
+                source: 'chrome'
+            };
+        }
+        bookmarks[testCase.targetUrl] = {
+            url: testCase.targetUrl,
+            title: 'Target software',
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        };
+
+        const manager = loadSearchManager(bookmarks);
+        const results = await manager.search(testCase.query, {
+            debounce: false,
+            maxResults: 50,
+            includeUrl: true,
+            includeChromeBookmarks: true,
+            recordSearch: false
+        });
+
+        assert.strictEqual(results.length, 1, `${testCase.query} should stay specific`);
+        assert.strictEqual(results[0].url, testCase.targetUrl);
+    }
+}
+
+async function testUncataloguedSoftwareNamesUseTheSameLiteralRule() {
+    const cases = [{ query: 'Notion', url: 'https://notion.so/workspace' },
+        { query: 'Slack', url: 'https://slack.com/client' },
+        { query: 'Discord', url: 'https://discord.com/channels/@me' }];
+
+    for (const testCase of cases) {
+        const bookmarks = {};
+        for (let index = 0; index < 60; index += 1) {
+            const url = `https://software-${index}.example/app`;
+            bookmarks[url] = {
+                url,
+                title: `Software hub ${index}`,
+                tags: [],
+                excerpt: '',
+                embedding: null,
+                source: 'chrome'
+            };
+        }
+        bookmarks[testCase.url] = {
+            url: testCase.url,
+            title: `${testCase.query} workspace`,
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        };
+
+        const manager = loadSearchManager(bookmarks);
+        const results = await manager.search(testCase.query, {
+            debounce: false,
+            maxResults: 1,
+            includeUrl: true,
+            includeChromeBookmarks: true,
+            recordSearch: false
+        });
+
+        assert.strictEqual(results.length, 1);
+        assert.strictEqual(results[0].url, testCase.url);
+    }
+}
+
+async function testMultiWordSoftwareNameMatchesUrlTokens() {
+    const manager = loadSearchManager({
+        'https://code.visualstudio.com/': {
+            url: 'https://code.visualstudio.com/',
+            title: 'Editor download',
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        }
+    });
+
+    const results = await manager.search('Visual Studio Code', {
+        debounce: false,
+        maxResults: 10,
+        includeUrl: true,
+        includeChromeBookmarks: true,
+        recordSearch: false
+    });
+
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].url, 'https://code.visualstudio.com/');
+}
+
+async function testLiteralSoftwareNameOutranksIntentAliases() {
+    const bookmarks = {};
+    for (let index = 0; index < 60; index += 1) {
+        const url = `https://chatgpt.com/c/${index}`;
+        bookmarks[url] = {
+            url,
+            title: `Assistant conversation ${index}`,
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        };
+    }
+    bookmarks['https://literal.example'] = {
+        url: 'https://literal.example',
+        title: 'AI',
+        tags: [],
+        excerpt: '',
+        embedding: null,
+        source: 'chrome'
+    };
+
+    const manager = loadSearchManager(bookmarks);
+    const results = await manager.search('AI', {
+        debounce: false,
+        maxResults: 50,
+        includeUrl: true,
+        includeChromeBookmarks: true,
+        recordSearch: false
+    });
+
+    assert.strictEqual(results[0].url, 'https://literal.example');
+    assert.ok(results[0].literalPriority > results[1].literalPriority);
 }
 
 async function testIconIntentFindsMingCuteWithoutEmbeddingApi() {
@@ -707,6 +869,47 @@ async function testPopupSearchMatchesMingCuteByChineseIconIntent() {
     assert.strictEqual(results[0].title, 'MingCute');
 }
 
+async function testPopupSpecificSoftwareNameAlwaysRanksFirst() {
+    const bookmarks = [];
+    for (let index = 0; index < 60; index += 1) {
+        bookmarks.push({
+            url: `https://chatgpt.com/c/${index}`,
+            title: `Assistant conversation ${index}`,
+            tags: [],
+            excerpt: '',
+            savedAt: index
+        });
+    }
+    bookmarks.push({
+        url: 'https://openai.com/research',
+        title: 'OpenAI Research',
+        tags: [],
+        excerpt: '',
+        savedAt: 0
+    });
+
+    const { searchVisibleBookmarks } = loadPopupSearchHelpers(bookmarks);
+    const results = await searchVisibleBookmarks('OpenAI');
+
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].url, 'https://openai.com/research');
+}
+
+async function testPopupMultiWordSoftwareNameMatchesUrlTokens() {
+    const { searchVisibleBookmarks } = loadPopupSearchHelpers([{
+        url: 'https://code.visualstudio.com/',
+        title: 'Editor download',
+        tags: [],
+        excerpt: '',
+        savedAt: 1
+    }]);
+
+    const results = await searchVisibleBookmarks('Visual Studio Code');
+
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].url, 'https://code.visualstudio.com/');
+}
+
 function testPopupSearchMergesLocalAndBackgroundResults() {
     const { mergeSearchResults } = loadPopupSearchHelpers();
     const results = mergeSearchResults(
@@ -783,6 +986,10 @@ async function run() {
     await testSpecificGitHubSearchIsNotCrowdedOutByGenericDeveloperBookmarks();
     testSpecificDeveloperBrandDoesNotBecomeAGenericAlias();
     await testBroadDeveloperIntentStillFindsGitHub();
+    await testSpecificSoftwareNamesStayPreciseAcrossIntentProfiles();
+    await testUncataloguedSoftwareNamesUseTheSameLiteralRule();
+    await testMultiWordSoftwareNameMatchesUrlTokens();
+    await testLiteralSoftwareNameOutranksIntentAliases();
     await testIconIntentFindsMingCuteWithoutEmbeddingApi();
     await testChineseIconIntentFindsMingCuteWithoutEmbeddingApi();
     await testChineseIconIntentFallsBackToChromeMingCute();
@@ -798,6 +1005,8 @@ async function run() {
     await testPopupSearchMatchesVisibleUppercaseTitle();
     await testPopupSearchMatchesMingCuteByIconIntent();
     await testPopupSearchMatchesMingCuteByChineseIconIntent();
+    await testPopupSpecificSoftwareNameAlwaysRanksFirst();
+    await testPopupMultiWordSoftwareNameMatchesUrlTokens();
     testPopupSearchMergesLocalAndBackgroundResults();
     testThemeDefaultsToSystemMode();
     testPopupUsesTokenizedStylesheetWithoutInlineOverrides();
