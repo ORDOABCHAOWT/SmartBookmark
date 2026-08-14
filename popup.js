@@ -1422,6 +1422,12 @@ async function updateSearchResults() {
             includeUrl: true,
             includeChromeBookmarks: true
         });
+
+        // 用户继续输入时，较早的异步搜索可能更晚返回；不要让旧结果
+        // 覆盖当前关键词的结果。
+        if (searchInput.value.trim() !== query) {
+            return;
+        }
         displaySearchResults(mergeSearchResults(localResults, results), query);
     }
 }
@@ -3123,6 +3129,11 @@ async function handleSearch() {
             includeUrl: true,
             includeChromeBookmarks: true
         });
+
+        // 只渲染仍与输入框一致的请求，避免慢请求覆盖用户刚输入的新关键词。
+        if (searchInput.value.trim() !== query) {
+            return;
+        }
         displaySearchResults(mergeSearchResults(localResults, results), query);
     } catch (error) {
         logger.error('搜索失败:', error);

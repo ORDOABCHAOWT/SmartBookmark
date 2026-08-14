@@ -624,7 +624,9 @@ const SEARCH_INTENT_PROFILES = [
             /开发/,
             /编程/
         ],
-        querySignals: ['代码', '开发', '编程', 'github', 'javascript', 'typescript', 'python', '前端'],
+        // 只有宽泛的开发意图才扩展同义词。GitHub、JavaScript、Python
+        // 这类具体品牌/技术词应保持精确，否则大量开发类书签会互相串搜。
+        querySignals: ['代码', '开发', '编程', '前端', 'dev', 'developer', 'programming'],
         queryAliases: [
             'code',
             'dev',
@@ -644,10 +646,6 @@ const SEARCH_INTENT_PROFILES = [
             'dev',
             'developer',
             'programming',
-            'github',
-            'javascript',
-            'typescript',
-            'python',
             '代码',
             '开发',
             '编程',

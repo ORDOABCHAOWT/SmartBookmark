@@ -321,6 +321,82 @@ async function testKeywordSearchFallsBackToChromeBookmarks() {
     assert.strictEqual(results[0].title, 'aihot');
 }
 
+async function testSpecificGitHubSearchIsNotCrowdedOutByGenericDeveloperBookmarks() {
+    const bookmarks = {};
+    for (let index = 0; index < 60; index += 1) {
+        const url = `https://gitlab.com/example/project-${index}`;
+        bookmarks[url] = {
+            url,
+            title: `Source project ${index}`,
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        };
+    }
+
+    bookmarks['https://github.com/example/target'] = {
+        url: 'https://github.com/example/target',
+        title: 'Target repository',
+        tags: [],
+        excerpt: '',
+        embedding: null,
+        source: 'chrome'
+    };
+
+    const manager = loadSearchManager(bookmarks);
+    const results = await manager.search('GitHub', {
+        debounce: false,
+        maxResults: 50,
+        includeUrl: true,
+        includeChromeBookmarks: true,
+        recordSearch: false
+    });
+
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].url, 'https://github.com/example/target');
+}
+
+function testSpecificDeveloperBrandDoesNotBecomeAGenericAlias() {
+    const { getBookmarkDerivedKeywords, getSearchQueryVariants } = loadUtilSearchHelpers();
+    const variants = getSearchQueryVariants('GitHub');
+    const gitLabKeywords = getBookmarkDerivedKeywords({
+        url: 'https://gitlab.com/example/project',
+        title: 'Source project',
+        tags: [],
+        excerpt: ''
+    });
+
+    assert.ok(variants.includes('github'));
+    assert.strictEqual(variants.includes('python'), false);
+    assert.strictEqual(variants.includes('code'), false);
+    assert.strictEqual(gitLabKeywords.includes('github'), false);
+}
+
+async function testBroadDeveloperIntentStillFindsGitHub() {
+    const manager = loadSearchManager({
+        'https://github.com/example/project': {
+            url: 'https://github.com/example/project',
+            title: 'Source repository',
+            tags: [],
+            excerpt: '',
+            embedding: null,
+            source: 'chrome'
+        }
+    });
+
+    const results = await manager.search('开发', {
+        debounce: false,
+        maxResults: 10,
+        includeUrl: true,
+        includeChromeBookmarks: true,
+        recordSearch: false
+    });
+
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].url, 'https://github.com/example/project');
+}
+
 async function testIconIntentFindsMingCuteWithoutEmbeddingApi() {
     let embeddingCalled = false;
     const manager = loadSearchManager({
@@ -704,6 +780,9 @@ async function run() {
     await testExactTitleMatchBeatsSemanticOnlyResult();
     await testExactTitleMatchDoesNotRequireEmbeddingApi();
     await testKeywordSearchFallsBackToChromeBookmarks();
+    await testSpecificGitHubSearchIsNotCrowdedOutByGenericDeveloperBookmarks();
+    testSpecificDeveloperBrandDoesNotBecomeAGenericAlias();
+    await testBroadDeveloperIntentStillFindsGitHub();
     await testIconIntentFindsMingCuteWithoutEmbeddingApi();
     await testChineseIconIntentFindsMingCuteWithoutEmbeddingApi();
     await testChineseIconIntentFallsBackToChromeMingCute();
